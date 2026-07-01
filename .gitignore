@@ -18,7 +18,19 @@ lerna-debug.log*
 .env.development
 .env.test
 .env.production
+.env.local
+.env.*.local
 
 # temp directory
 .temp
 .tmp
+
+# IDE (WebStorm / JetBrains)
+.idea
+*.iml
+
+# OS
+.DS_Store
+
+# Coverage / tests
+/coverage
