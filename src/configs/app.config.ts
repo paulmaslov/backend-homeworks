@@ -1,5 +1,10 @@
 export default () => ({
     port: parseInt(process.env.PORT as string, 10),
+    nodeEnv: process.env.NODE_ENV ?? "development",
+    isProduction: process.env.NODE_ENV === "production",
+    cors: {
+        origin: process.env.CORS_ORIGIN as string,
+    },
     database: {
         host: process.env.DB_HOST as string,
         port: parseInt(process.env.DB_PORT as string, 10),
