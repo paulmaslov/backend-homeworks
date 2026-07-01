@@ -9,11 +9,21 @@ export interface CreateUserData {
     description?: string;
 }
 
+export interface FindUsersParams {
+    limit: number;
+    offset: number;
+    search?: string;
+}
+
 export abstract class IUserRepository {
     abstract create(
         data: CreateUserData,
         transaction?: Transaction,
     ): Promise<User>;
+
+    abstract findAndCount(
+        params: FindUsersParams,
+    ): Promise<{ rows: User[]; count: number }>;
 
     abstract findById(
         id: string,

@@ -4,6 +4,9 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
 import * as argon2 from "argon2";
 import { Transaction } from "sequelize";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UserResponseDto } from "@/features/users/dto/user-response.dto";
+import { PaginatedDto } from "@/common/dto/paginated.dto";
 
 @Injectable()
 export class UserService {
@@ -38,6 +41,23 @@ export class UserService {
             },
             transaction,
         );
+    }
+
+    async findAll(
+        query: ListUsersQueryDto,
+    ): Promise<PaginatedDto<UserResponseDto>> {
+        const { page, limit, search } = query;
+        const offset = (page - 1) * limit;
+
+        const { rows, count } = await this.userRepository.findAndCount({
+            limit,
+            offset,
+            search,
+        });
+
+        // маппим, чтобы не было хеша пароля в ответе
+        const data = rows.map((user) => new UserResponseDto(user));
+        return new PaginatedDto(data, count, page, limit);
     }
 
     async findByLogin(login: string): Promise<User | null> {

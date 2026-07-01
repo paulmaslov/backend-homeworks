@@ -1,8 +1,12 @@
 import { BaseRepository } from "@/common/repositories/base.repository";
-import { CreateUserData, IUserRepository } from "./user.repository.interface";
+import {
+    CreateUserData,
+    FindUsersParams,
+    IUserRepository,
+} from "./user.repository.interface";
 import { User } from "./user.model";
 import { InjectModel } from "@nestjs/sequelize";
-import { Transaction } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import { Injectable, NotFoundException } from "@nestjs/common";
 
 @Injectable()
@@ -19,6 +23,21 @@ export class UserRepository
         transaction?: Transaction,
     ): Promise<User> {
         return this.model.create(data, this.withTx({}, transaction));
+    }
+
+    async findAndCount(
+        params: FindUsersParams,
+    ): Promise<{ rows: User[]; count: number }> {
+        const where = params.search
+            ? { login: { [Op.iLike]: `%${params.search}%` } } // делаем независимым от регистра
+            : {};
+
+        return this.model.findAndCountAll({
+            where,
+            limit: params.limit,
+            offset: params.offset,
+            order: [["login", "ASC"]], // сортируем для стабильного порядка строк
+        });
     }
 
     async findById(
