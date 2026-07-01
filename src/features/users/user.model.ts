@@ -1,8 +1,16 @@
-import {Column, DataType, Table} from "sequelize-typescript";
-import {BaseModel} from "../../common/models/base.model";
+import { Column, DataType, Table } from "sequelize-typescript";
+import { BaseModel } from "@/common/models/base.model";
+
+interface UserCreationAttrs {
+    login: string;
+    email: string;
+    password: string;
+    age: number;
+    description?: string;
+}
 
 @Table({ tableName: "users", timestamps: true })
-export class User extends BaseModel {
+export class User extends BaseModel<User, UserCreationAttrs> {
     @Column({ type: DataType.STRING(50), unique: true, allowNull: false })
     declare login: string;
 
@@ -17,5 +25,5 @@ export class User extends BaseModel {
     declare age: number;
 
     @Column({ type: DataType.STRING(1000), allowNull: true })
-    declare description: string | null
+    declare description: string | null;
 }
