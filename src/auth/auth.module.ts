@@ -1,12 +1,9 @@
 import { Module } from "@nestjs/common";
 import { UsersModule } from "@/features/users/users.module";
-import { RefreshToken } from "./refresh-token.model";
-import { SequelizeModule } from "@nestjs/sequelize";
+import { RefreshTokenModule } from "./refresh-token.module";
 import { PassportModule } from "@nestjs/passport";
 import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
-import { RefreshTokenRepository } from "./refresh-token.repository";
 import { AccessTokenStrategy } from "./strategies/access-token.strategy";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
@@ -14,11 +11,8 @@ import { AuthController } from "./auth.controller";
 @Module({
     imports: [
         UsersModule,
-
-        SequelizeModule.forFeature([RefreshToken]),
-
+        RefreshTokenModule,
         PassportModule,
-
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
@@ -29,11 +23,7 @@ import { AuthController } from "./auth.controller";
             }),
         }),
     ],
-    providers: [
-        { provide: IRefreshTokenRepository, useClass: RefreshTokenRepository },
-        AccessTokenStrategy,
-        AuthService,
-    ],
+    providers: [AccessTokenStrategy, AuthService],
     controllers: [AuthController],
 })
 export class AuthModule {}

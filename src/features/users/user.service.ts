@@ -7,15 +7,22 @@ import { IUserRepository } from "./user.repository.interface";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
 import * as argon2 from "argon2";
-import { Transaction } from "sequelize";
+import { Transaction, UniqueConstraintError } from "sequelize";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { UserResponseDto } from "@/features/users/dto/user-response.dto";
 import { PaginatedDto } from "@/common/dto/paginated.dto";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
+import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
+import { InjectConnection } from "@nestjs/sequelize";
+import { Sequelize } from "sequelize-typescript";
 
 @Injectable()
 export class UserService {
-    constructor(private readonly userRepository: IUserRepository) {}
+    constructor(
+        private readonly userRepository: IUserRepository,
+        private readonly refreshTokenRepository: IRefreshTokenRepository,
+        @InjectConnection() private readonly sequelize: Sequelize,
+    ) {}
 
     async create(dto: CreateUserDto, transaction?: Transaction): Promise<User> {
         const existingByLogin = await this.userRepository.findByLogin(
@@ -36,16 +43,25 @@ export class UserService {
 
         const passwordHash = await argon2.hash(dto.password);
 
-        return this.userRepository.create(
-            {
-                login: dto.login,
-                email: dto.email,
-                password: passwordHash,
-                age: dto.age,
-                description: dto.description,
-            },
-            transaction,
-        );
+        try {
+            return await this.userRepository.create(
+                {
+                    login: dto.login,
+                    email: dto.email,
+                    password: passwordHash,
+                    age: dto.age,
+                    description: dto.description,
+                },
+                transaction,
+            );
+        } catch (error) {
+            if (error instanceof UniqueConstraintError) {
+                throw new ConflictException(
+                    "User with such login or email already exists",
+                );
+            }
+            throw error;
+        }
     }
 
     async update(userId: string, dto: UpdateUserDto): Promise<UserResponseDto> {
@@ -68,7 +84,17 @@ export class UserService {
             }
         }
 
-        const updated = await this.userRepository.update(userId, dto);
+        let updated: User | null;
+        try {
+            updated = await this.userRepository.update(userId, dto);
+        } catch (error) {
+            if (error instanceof UniqueConstraintError) {
+                throw new ConflictException(
+                    "User with such login or email already exists",
+                );
+            }
+            throw error;
+        }
         if (!updated) {
             throw new NotFoundException(`User with id ${userId} not found`);
         }
@@ -76,10 +102,19 @@ export class UserService {
     }
 
     async remove(userId: string): Promise<void> {
-        const affected = await this.userRepository.softDelete(userId);
-        if (affected === 0) {
-            throw new NotFoundException(`User with id ${userId} not found`);
-        }
+        await this.sequelize.transaction(async (transaction) => {
+            const affected = await this.userRepository.softDelete(
+                userId,
+                transaction,
+            );
+            if (affected === 0) {
+                throw new NotFoundException(`User with id ${userId} not found`);
+            }
+            await this.refreshTokenRepository.deleteByUserId(
+                userId,
+                transaction,
+            );
+        });
     }
 
     async findAll(

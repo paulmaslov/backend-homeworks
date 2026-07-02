@@ -7,6 +7,7 @@ import {
     HttpStatus,
     Patch,
     Query,
+    Res,
     UseGuards,
 } from "@nestjs/common";
 import { UserService } from "./user.service";
@@ -16,6 +17,8 @@ import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { PaginatedDto } from "@/common/dto/paginated.dto";
 import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
+import { Response } from "express";
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "@/auth/auth.constants";
 
 @UseGuards(AccessTokenGuard)
 @Controller("users")
@@ -40,8 +43,12 @@ export class UsersController {
 
     @Delete("me")
     @HttpCode(HttpStatus.NO_CONTENT)
-    async removeMe(@CurrentUser("userId") userId: string): Promise<void> {
-        return this.userService.remove(userId);
+    async removeMe(
+        @CurrentUser("userId") userId: string,
+        @Res({ passthrough: true }) res: Response,
+    ): Promise<void> {
+        await this.userService.remove(userId);
+        res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     }
 
     @Get()

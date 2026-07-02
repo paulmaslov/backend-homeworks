@@ -16,8 +16,7 @@ import { Request, Response } from "express";
 import ms from "ms";
 import type { StringValue } from "ms";
 import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
-
-const REFRESH_COOKIE = "refreshToken";
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
 
 @Controller("auth")
 export class AuthController {
@@ -31,7 +30,7 @@ export class AuthController {
             httpOnly: true,
             secure: this.config.get<boolean>("isProduction"),
             sameSite: "strict",
-            path: "/auth",
+            path: REFRESH_COOKIE_PATH,
             maxAge: ms(
                 this.config.getOrThrow<string>(
                     "jwt.refreshExpiresIn",
@@ -86,6 +85,6 @@ export class AuthController {
     ): Promise<void> {
         const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
         if (raw) await this.authService.logout(raw);
-        res.clearCookie(REFRESH_COOKIE, { path: "/auth" });
+        res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     }
 }
