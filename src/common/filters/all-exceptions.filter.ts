@@ -33,7 +33,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 : "Internal server error";
 
         if (!(exception instanceof HttpException)) {
-            this.logger.error(exception);
+            if (exception instanceof Error) {
+                this.logger.error(exception.message, exception.stack);
+            } else {
+                this.logger.error(JSON.stringify(exception));
+            }
         }
 
         const responseBody = {
