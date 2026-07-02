@@ -1,4 +1,4 @@
-import { Column, DataType, Table } from "sequelize-typescript";
+import { Column, DataType, DeletedAt, Table } from "sequelize-typescript";
 import { BaseModel } from "@/common/models/base.model";
 
 interface UserCreationAttrs {
@@ -9,7 +9,7 @@ interface UserCreationAttrs {
     description?: string;
 }
 
-@Table({ tableName: "users", timestamps: true })
+@Table({ tableName: "users", timestamps: true, paranoid: true })
 export class User extends BaseModel<User, UserCreationAttrs> {
     @Column({ type: DataType.STRING(50), unique: true, allowNull: false })
     declare login: string;
@@ -26,4 +26,7 @@ export class User extends BaseModel<User, UserCreationAttrs> {
 
     @Column({ type: DataType.STRING(1000), allowNull: true })
     declare description: string | null;
+
+    @DeletedAt
+    declare deletedAt: Date | null;
 }

@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+    ConflictException,
+    Injectable,
+    NotFoundException,
+} from "@nestjs/common";
 import { IUserRepository } from "./user.repository.interface";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
@@ -7,6 +11,7 @@ import { Transaction } from "sequelize";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { UserResponseDto } from "@/features/users/dto/user-response.dto";
 import { PaginatedDto } from "@/common/dto/paginated.dto";
+import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
 
 @Injectable()
 export class UserService {
@@ -41,6 +46,40 @@ export class UserService {
             },
             transaction,
         );
+    }
+
+    async update(userId: string, dto: UpdateUserDto): Promise<UserResponseDto> {
+        // уникальность логина / почты, исключая себя
+        if (dto.login) {
+            const existing = await this.userRepository.findByLogin(dto.login);
+            if (existing && existing.id !== userId) {
+                throw new ConflictException(
+                    "User with such login already exists",
+                );
+            }
+        }
+
+        if (dto.email) {
+            const existing = await this.userRepository.findByEmail(dto.email);
+            if (existing && existing.id !== userId) {
+                throw new ConflictException(
+                    "User with such email already exists",
+                );
+            }
+        }
+
+        const updated = await this.userRepository.update(userId, dto);
+        if (!updated) {
+            throw new NotFoundException(`User with id ${userId} not found`);
+        }
+        return new UserResponseDto(updated);
+    }
+
+    async remove(userId: string): Promise<void> {
+        const affected = await this.userRepository.softDelete(userId);
+        if (affected === 0) {
+            throw new NotFoundException(`User with id ${userId} not found`);
+        }
     }
 
     async findAll(

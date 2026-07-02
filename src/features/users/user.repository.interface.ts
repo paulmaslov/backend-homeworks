@@ -2,17 +2,24 @@ import { Transaction } from "sequelize";
 import { User } from "./user.model";
 
 export interface CreateUserData {
-    login: string;
-    email: string;
-    password: string;
-    age: number;
-    description?: string;
+    readonly login: string;
+    readonly email: string;
+    readonly password: string;
+    readonly age: number;
+    readonly description?: string;
 }
 
 export interface FindUsersParams {
-    limit: number;
-    offset: number;
-    search?: string;
+    readonly limit: number;
+    readonly offset: number;
+    readonly search?: string;
+}
+
+export interface UpdateUserData {
+    readonly login?: string;
+    readonly email?: string;
+    readonly age?: number;
+    readonly description?: string;
 }
 
 export abstract class IUserRepository {
@@ -20,6 +27,14 @@ export abstract class IUserRepository {
         data: CreateUserData,
         transaction?: Transaction,
     ): Promise<User>;
+
+    abstract update(
+        id: string,
+        data: UpdateUserData,
+        transaction?: Transaction,
+    ): Promise<User | null>;
+
+    abstract softDelete(id: string, transaction?: Transaction): Promise<number>;
 
     abstract findAndCount(
         params: FindUsersParams,

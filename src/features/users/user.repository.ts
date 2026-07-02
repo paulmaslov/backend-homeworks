@@ -3,6 +3,7 @@ import {
     CreateUserData,
     FindUsersParams,
     IUserRepository,
+    UpdateUserData,
 } from "./user.repository.interface";
 import { User } from "./user.model";
 import { InjectModel } from "@nestjs/sequelize";
@@ -23,6 +24,23 @@ export class UserRepository
         transaction?: Transaction,
     ): Promise<User> {
         return this.model.create(data, this.withTx({}, transaction));
+    }
+
+    async update(
+        id: string,
+        data: UpdateUserData,
+        transaction?: Transaction,
+    ): Promise<User | null> {
+        const [, rows] = await this.model.update(
+            data,
+            this.withTx({ where: { id }, returning: true }, transaction),
+        );
+        return rows[0] ?? null; // null, если юзер не найден (или deleted)
+    }
+
+    async softDelete(id: string, transaction?: Transaction): Promise<number> {
+        // из-за paranoid destroy ставит deletedAt, а не удаляет физически
+        return this.model.destroy(this.withTx({ where: { id } }, transaction));
     }
 
     async findAndCount(
