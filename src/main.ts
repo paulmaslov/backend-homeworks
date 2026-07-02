@@ -1,7 +1,7 @@
 import { HttpAdapterHost, NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, VersioningType } from "@nestjs/common";
 import cookieParser from "cookie-parser";
 import { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -10,6 +10,9 @@ import { REFRESH_COOKIE } from "./auth/auth.constants";
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
     const config = app.get(ConfigService);
+
+    app.setGlobalPrefix("api");
+    app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
 
     app.useGlobalPipes(
         new ValidationPipe({
@@ -36,7 +39,7 @@ async function bootstrap() {
         .addCookieAuth(REFRESH_COOKIE)
         .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("api", app, document);
+    SwaggerModule.setup("api/v1/docs", app, document);
 
     await app.listen(config.getOrThrow<number>("port"));
 }
