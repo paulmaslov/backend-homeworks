@@ -17,7 +17,18 @@ import ms from "ms";
 import type { StringValue } from "ms";
 import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
+import {
+    ApiConflictResponse,
+    ApiCookieAuth,
+    ApiCreatedResponse,
+    ApiNoContentResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+    ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 
+@ApiTags("auth")
 @Controller("auth")
 export class AuthController {
     constructor(
@@ -39,8 +50,10 @@ export class AuthController {
         });
     }
 
+    @ApiOperation({ summary: "Register a new user and issue tokens" })
+    @ApiCreatedResponse({ type: AccessTokenResponseDto })
+    @ApiConflictResponse({ description: "Login or email already taken" })
     @Post("register")
-    @HttpCode(HttpStatus.CREATED)
     async register(
         @Body() dto: CreateUserDto,
         @Res({ passthrough: true }) res: Response,
@@ -51,6 +64,9 @@ export class AuthController {
         return { accessToken };
     }
 
+    @ApiOperation({ summary: "Authenticate by login and password" })
+    @ApiOkResponse({ type: AccessTokenResponseDto })
+    @ApiUnauthorizedResponse({ description: "Invalid login or password" })
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async login(
@@ -62,6 +78,12 @@ export class AuthController {
         return { accessToken };
     }
 
+    @ApiOperation({ summary: "Rotate tokens using the refresh cookie" })
+    @ApiCookieAuth(REFRESH_COOKIE)
+    @ApiOkResponse({ type: AccessTokenResponseDto })
+    @ApiUnauthorizedResponse({
+        description: "Missing or invalid refresh token",
+    })
     @Post("refresh")
     @HttpCode(HttpStatus.OK)
     async refresh(
@@ -77,6 +99,9 @@ export class AuthController {
         return { accessToken };
     }
 
+    @ApiOperation({ summary: "Revoke the refresh token and clear the cookie" })
+    @ApiCookieAuth(REFRESH_COOKIE)
+    @ApiNoContentResponse({ description: "Logged out" })
     @Post("logout")
     @HttpCode(HttpStatus.NO_CONTENT)
     async logout(

@@ -19,12 +19,29 @@ import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
 import { Response } from "express";
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "@/auth/auth.constants";
+import {
+    ApiBearerAuth,
+    ApiConflictResponse,
+    ApiNoContentResponse,
+    ApiNotFoundResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+    ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
+import { ApiPaginatedResponse } from "@/common/decorators/api-paginated-response.decorator";
 
+@ApiTags("users")
+@ApiBearerAuth()
 @UseGuards(AccessTokenGuard)
 @Controller("users")
 export class UsersController {
     constructor(private readonly userService: UserService) {}
 
+    @ApiOperation({ summary: "Get the authenticated user's profile" })
+    @ApiOkResponse({ type: UserResponseDto })
+    @ApiUnauthorizedResponse({ description: "Not authenticated" })
+    @ApiNotFoundResponse({ description: "User not found" })
     @Get("me")
     async getMyProfile(
         @CurrentUser("userId") userId: string,
@@ -33,6 +50,10 @@ export class UsersController {
         return new UserResponseDto(user);
     }
 
+    @ApiOperation({ summary: "Update the authenticated user's profile" })
+    @ApiOkResponse({ type: UserResponseDto })
+    @ApiConflictResponse({ description: "Login or email already taken" })
+    @ApiNotFoundResponse({ description: "User not found" })
     @Patch("me")
     async updateMe(
         @CurrentUser("userId") userId: string,
@@ -41,6 +62,8 @@ export class UsersController {
         return this.userService.update(userId, dto);
     }
 
+    @ApiOperation({ summary: "Soft-delete the authenticated user's account" })
+    @ApiNoContentResponse({ description: "Account deleted" })
     @Delete("me")
     @HttpCode(HttpStatus.NO_CONTENT)
     async removeMe(
@@ -51,6 +74,8 @@ export class UsersController {
         res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     }
 
+    @ApiOperation({ summary: "List users with pagination and login search" })
+    @ApiPaginatedResponse(UserResponseDto)
     @Get()
     async findAll(
         @Query() query: ListUsersQueryDto,
