@@ -1,5 +1,6 @@
-import { NestFactory } from "@nestjs/core";
+import { HttpAdapterHost, NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { ValidationPipe } from "@nestjs/common";
 import cookieParser from "cookie-parser";
 import { ConfigService } from "@nestjs/config";
@@ -17,6 +18,8 @@ async function bootstrap() {
             transform: true,
         }),
     );
+
+    app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
 
     app.use(cookieParser());
 
