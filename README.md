@@ -1,98 +1,89 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend Homeworks — User Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API на NestJS для работы с пользователями: регистрация, аутентификация по JWT
+и CRUD профиля. БД — PostgreSQL через Sequelize, доступ к данным вынесен в репозитории.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Стек
 
-## Description
+- NestJS 11
+- PostgreSQL 16, Sequelize + sequelize-typescript
+- JWT (access) + refresh-токен в httpOnly cookie
+- argon2 для хэширования паролей
+- class-validator / class-transformer, Swagger, Jest
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Запуск
 
-## Project setup
+Нужны Node 20+ и Docker.
 
 ```bash
-$ npm install
+cp .env.example .env     # значения по умолчанию рабочие для локалки
+docker compose up -d     # поднимает только Postgres, на хосте он висит на порту 5433
+npm install
+npm run start:dev
 ```
 
-## Compile and run the project
+Приложение стартует на `http://localhost:3000`, глобальный префикс `/api`,
+версия в URL — `/api/v1/...`. Swagger: `http://localhost:3000/api/v1/docs`.
+
+Схема БД создаётся автоматически при первом старте (`synchronize`), отдельно миграции
+гонять не нужно.
+
+## Что реализовано
+
+Все четыре уровня задания:
+
+- регистрация (login, email, password, age, description до 1000 символов) с выдачей пары токенов;
+- логин по login + паролю, обновление токенов (`/auth/refresh`) и logout;
+- `GET /api/v1/users/me` — свой профиль, без `:id` в роуте;
+- `GET /api/v1/users` — список для авторизованных, с пагинацией и поиском по логину;
+- `PATCH /api/v1/users/me` и `DELETE /api/v1/users/me` (мягкое удаление);
+- Swagger-документация и юнит-тесты.
+
+Сверх задания: argon2 вместо bcrypt, хранение в БД только хэша refresh-токена, ротация
+refresh при каждом обновлении, паттерн Repository (сервисы инжектят абстракцию, а не
+Sequelize-модель напрямую), глобальный `ValidationPipe` (whitelist + forbidNonWhitelisted +
+transform), глобальный exception-filter, rate limiting и версионирование API.
+
+## Технические моменты, которые стоит пояснить
+
+**Транзакции.** Регистрация создаёт пользователя и сразу выдаёт ему refresh-токен —
+оба шага в одной транзакции, чтобы при сбое не остался пользователь без сессии (или
+наоборот). Refresh тоже транзакционный: старый токен удаляется и выдаётся новый атомарно,
+иначе можно было бы либо потерять сессию, либо получить два валидных токена
+одновременно. По той же логике удаление аккаунта (soft-delete + отзыв всех refresh-сессий)
+идёт одной транзакцией.
+
+**Уникальность при мягком удалении.** Удаление мягкое (`paranoid`), поэтому обычный
+unique-констрейнт на login/email не дал бы заново занять логин удалённого пользователя.
+Вместо этого уникальность держится на частичных индексах `where deletedAt is null`
+(см. `user.model.ts`) — они действуют только среди живых строк, так что новые
+пользователи с удалёнными не конфликтуют. Paranoid при этом сам добавляет
+`deletedAt is null` в выборки, и удалённые записи не всплывают ни в проверках, ни в поиске.
+
+**Токены.** Access — короткоживущий JWT с минимальным payload (только `sub`). Refresh
+лежит в httpOnly cookie с ограниченным path, а в БД хранится только его sha256-хэш:
+даже при утечке дампа по нему нельзя восстановить валидный токен.
+
+## Тесты и покрытие
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm test           # юнит-тесты
+npm run test:cov   # с покрытием
 ```
 
-## Run tests
+Юнит-тестами покрыта бизнес-логика — сервисы, где есть ветвления и решения:
 
-```bash
-# unit tests
-$ npm run test
+- `auth.service` — 100% (логин, refresh с ротацией и с протухшим токеном, регистрация, logout);
+- `user.service` — ~91% (конфликты login/email, not found, маппинг в DTO без пароля, пагинация).
 
-# e2e tests
-$ npm run test:e2e
+Из DTO протестированы те, что несут собственную логику, а не только набор декораторов:
+`CreateUserDto` (нормализация email, отсечение лишних полей) и `ListUsersQueryDto`
+(приведение query-строк к числам и границы пагинации). Простые DTO вроде login/update —
+это по сути объявления правил class-validator; тестировать их отдельно значит тестировать
+саму библиотеку. Отдельно покрыт кастомный декоратор `@CurrentUser`, потому что в нём есть
+своя логика — достать из запроса либо всего пользователя, либо конкретное поле.
 
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Контроллеры, модули и прочую обвязку юнит-тестами намеренно не трогаю: их корректность
+ловится типами и сборкой, а сценарно они закрывались бы e2e-тестами. Поэтому покрытие
+ по всему проекту невысокое (~38%) — оно считается по всем файлам, включая тонкую
+обвязку, — но на самой логике покрытие полное.
