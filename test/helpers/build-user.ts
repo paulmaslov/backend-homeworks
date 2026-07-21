@@ -1,4 +1,4 @@
-import {CreateUserDto} from "@/features/users/dto/create-user.dto";
+import { CreateUserDto } from "@/features/users/dto/create-user.dto";
 
 const baseUser: CreateUserDto = {
     login: "test_user",
@@ -10,8 +10,7 @@ const baseUser: CreateUserDto = {
 // ключи - только из dto, значения - любые
 export type UserOverrides = Partial<Record<keyof CreateUserDto, unknown>>;
 
-export const buildUser = (overrides: UserOverrides = {})=> ({
+export const buildUser = (overrides: UserOverrides = {}) => ({
     ...baseUser,
     ...overrides,
 });
-

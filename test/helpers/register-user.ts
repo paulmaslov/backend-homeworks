@@ -1,7 +1,8 @@
 import { INestApplication } from "@nestjs/common";
-import request from "supertest";
 import { buildUser, UserOverrides } from "./build-user";
-import { getCookies } from "./get-cookies";
+import { getRefreshCookie } from "./get-cookies";
+import { api, API_PREFIX } from "./api";
+import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
 
 export interface RegisteredUser {
     accessToken: string;
@@ -12,15 +13,14 @@ export async function registerUser(
     app: INestApplication,
     overrides: UserOverrides = {},
 ): Promise<RegisteredUser> {
-    const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/register")
+    const response = await api(app)
+        .post(`${API_PREFIX}/auth/register`)
         .send(buildUser(overrides))
         .expect(201);
 
-    const body = response.body as { accessToken: string };
+    const { accessToken } = response.body as AccessTokenResponseDto;
 
-    const refreshCookie =
-        getCookies(response).find((c) => c.startsWith("refreshToken=")) ?? "";
+    const refreshCookie = getRefreshCookie(response) ?? "";
 
-    return { accessToken: body.accessToken, refreshCookie };
+    return { accessToken, refreshCookie };
 }
