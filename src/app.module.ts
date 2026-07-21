@@ -5,10 +5,7 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
 import { ConfigsModule } from "./configs/config.module";
 import { UsersModule } from "./features/users/users.module";
 import { AuthModule } from "./auth/auth.module";
-
-// 10 запросов в минуту
-const RATE_LIMITER_TIME_INTERVAL_MS = 60000;
-const RATE_LIMITER_REQUESTS_COUNT = 10;
+import { ConfigService } from "@nestjs/config";
 
 @Module({
     imports: [
@@ -16,13 +13,16 @@ const RATE_LIMITER_REQUESTS_COUNT = 10;
         PostgresqlModule,
         UsersModule,
         AuthModule,
-        ThrottlerModule.forRoot({
-            throttlers: [
-                {
-                    ttl: RATE_LIMITER_TIME_INTERVAL_MS,
-                    limit: RATE_LIMITER_REQUESTS_COUNT,
-                },
-            ],
+        ThrottlerModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({
+                throttlers: [
+                    {
+                        ttl: config.getOrThrow<number>("rateLimit.periodMs"),
+                        limit: config.getOrThrow<number>("rateLimit.requests"),
+                    },
+                ],
+            }),
         }),
     ],
     providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
