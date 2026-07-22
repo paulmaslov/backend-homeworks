@@ -3,18 +3,20 @@ import {
     Injectable,
     NotFoundException,
 } from "@nestjs/common";
-import { IUserRepository } from "./user.repository.interface";
-import { CreateUserDto } from "./dto/create-user.dto";
-import { User } from "./user.model";
+import { InjectConnection } from "@nestjs/sequelize";
 import * as argon2 from "argon2";
 import { Transaction, UniqueConstraintError } from "sequelize";
-import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
-import { UserResponseDto } from "@/features/users/dto/user-response.dto";
-import { PaginatedDto } from "@/common/dto/paginated.dto";
-import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
-import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
-import { InjectConnection } from "@nestjs/sequelize";
 import { Sequelize } from "sequelize-typescript";
+
+import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
+import { PaginatedDto } from "@/common/dto/paginated.dto";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
+import { UserResponseDto } from "@/features/users/dto/user-response.dto";
+
+import { CreateUserDto } from "./dto/create-user.dto";
+import { User } from "./user.model";
+import { IUserRepository } from "./user.repository.interface";
 
 @Injectable()
 export class UserService {

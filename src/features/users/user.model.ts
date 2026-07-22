@@ -1,4 +1,5 @@
 import { Column, DataType, DeletedAt, Table } from "sequelize-typescript";
+
 import { BaseModel } from "@/common/models/base.model";
 
 interface UserCreationAttrs {

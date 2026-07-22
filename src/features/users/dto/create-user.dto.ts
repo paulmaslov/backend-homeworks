@@ -1,3 +1,5 @@
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
     IsEmail,
     IsInt,
@@ -8,8 +10,6 @@ import {
     Min,
     MinLength,
 } from "class-validator";
-import { Transform } from "class-transformer";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateUserDto {
     @ApiProperty({ example: "john" })

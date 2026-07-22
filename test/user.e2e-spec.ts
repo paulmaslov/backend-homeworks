@@ -1,9 +1,10 @@
 import { INestApplication } from "@nestjs/common";
-import { createTestApp } from "./helpers/create-test-app";
-import { cleanDatabase } from "./helpers/clean-database";
-import { registerUser } from "./helpers/register-user";
+
 import { api, API_PREFIX } from "./helpers/api";
 import { buildUser } from "./helpers/build-user";
+import { cleanDatabase } from "./helpers/clean-database";
+import { createTestApp } from "./helpers/create-test-app";
+import { registerUser } from "./helpers/register-user";
 
 describe("Users (e2e)", () => {
     let app: INestApplication;

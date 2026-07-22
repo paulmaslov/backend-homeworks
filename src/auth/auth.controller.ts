@@ -8,15 +8,7 @@ import {
     Res,
     UnauthorizedException,
 } from "@nestjs/common";
-import { AuthService } from "./auth.service";
-import { CreateUserDto } from "@/features/users/dto/create-user.dto";
-import { LoginDto } from "./dto/login.dto";
 import { ConfigService } from "@nestjs/config";
-import { Request, Response } from "express";
-import ms from "ms";
-import type { StringValue } from "ms";
-import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
 import {
     ApiConflictResponse,
     ApiCookieAuth,
@@ -27,6 +19,16 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { Request, Response } from "express";
+import type { StringValue } from "ms";
+import ms from "ms";
+
+import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
+import { CreateUserDto } from "@/features/users/dto/create-user.dto";
+
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
+import { AuthService } from "./auth.service";
+import { LoginDto } from "./dto/login.dto";
 
 @ApiTags("auth")
 @Controller("auth")

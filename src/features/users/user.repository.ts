@@ -1,14 +1,16 @@
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/sequelize";
+import { Op, Transaction } from "sequelize";
+
 import { BaseRepository } from "@/common/repositories/base.repository";
+
+import { User } from "./user.model";
 import {
     CreateUserData,
     FindUsersParams,
     IUserRepository,
     UpdateUserData,
 } from "./user.repository.interface";
-import { User } from "./user.model";
-import { InjectModel } from "@nestjs/sequelize";
-import { Op, Transaction } from "sequelize";
-import { Injectable, NotFoundException } from "@nestjs/common";
 
 @Injectable()
 export class UserRepository

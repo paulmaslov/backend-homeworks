@@ -1,11 +1,12 @@
 import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.module";
+
+import { AuthModule } from "./auth/auth.module";
 import { ConfigsModule } from "./configs/config.module";
 import { UsersModule } from "./features/users/users.module";
-import { AuthModule } from "./auth/auth.module";
-import { ConfigService } from "@nestjs/config";
+import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.module";
 
 @Module({
     imports: [

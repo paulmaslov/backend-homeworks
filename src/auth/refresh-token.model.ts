@@ -1,10 +1,11 @@
 import {
-    Table,
+    BelongsTo,
     Column,
     DataType,
     ForeignKey,
-    BelongsTo,
+    Table,
 } from "sequelize-typescript";
+
 import { BaseModel } from "@/common/models/base.model";
 import { User } from "@/features/users/user.model";
 

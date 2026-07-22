@@ -1,9 +1,11 @@
 import "reflect-metadata";
+
 import {
     ArgumentMetadata,
     BadRequestException,
     ValidationPipe,
 } from "@nestjs/common";
+
 import { CreateUserDto } from "./create-user.dto";
 
 describe("CreateUserDto validation", () => {

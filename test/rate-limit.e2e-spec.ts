@@ -1,8 +1,9 @@
 import { INestApplication } from "@nestjs/common";
-import { createTestApp } from "./helpers/create-test-app";
-import { RATE_LIMIT_PERIOD, RATE_LIMIT_REQUESTS } from "./setup/env-defaults";
+
 import { api, API_PREFIX } from "./helpers/api";
+import { createTestApp } from "./helpers/create-test-app";
 import { ErrorResponse } from "./helpers/error-response";
+import { RATE_LIMIT_PERIOD, RATE_LIMIT_REQUESTS } from "./setup/env-defaults";
 
 const REQUESTS = 2;
 const PERIOD = "1s";
@@ -42,7 +43,16 @@ describe("Rate limit (e2e)", () => {
     });
 
     it("Allows requests within the limit", async () => {
-        await exhaustLimit();
+        const statuses: number[] = [];
+
+        for (let i = 0; i < REQUESTS; i++) {
+            const response = await attempt();
+
+            statuses.push(response.status);
+        }
+
+        expect(statuses).toHaveLength(REQUESTS);
+        expect(statuses).not.toContain(429);
     });
 
     it("Returns 429 when the limit is exceeded", async () => {

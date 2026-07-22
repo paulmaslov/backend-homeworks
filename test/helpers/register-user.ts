@@ -1,8 +1,10 @@
 import { INestApplication } from "@nestjs/common";
+
+import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
+
+import { api, API_PREFIX } from "./api";
 import { buildUser, UserOverrides } from "./build-user";
 import { getRefreshCookie } from "./get-cookies";
-import { api, API_PREFIX } from "./api";
-import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
 
 export interface RegisteredUser {
     accessToken: string;

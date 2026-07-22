@@ -1,4 +1,5 @@
 import { ConfigService } from "@nestjs/config";
+
 import { AccessTokenStrategy } from "./access-token.strategy";
 
 describe("AccessTokenStrategy", () => {

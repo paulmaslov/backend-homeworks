@@ -1,15 +1,18 @@
-import { UnauthorizedException } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { Sequelize } from "sequelize-typescript";
-import { Transaction } from "sequelize";
 import { createHash } from "node:crypto";
+
+import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
 import * as argon2 from "argon2";
-import { AuthService } from "./auth.service";
-import { UserService } from "@/features/users/user.service";
-import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
+import { Transaction } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
+
 import { User } from "@/features/users/user.model";
+import { UserService } from "@/features/users/user.service";
+
+import { AuthService } from "./auth.service";
 import { RefreshToken } from "./refresh-token.model";
+import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
 
 jest.mock("argon2");
 

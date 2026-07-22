@@ -3,9 +3,10 @@ import {
     ValidationPipe,
     VersioningType,
 } from "@nestjs/common";
-import { AllExceptionsFilter } from "@/common/filters/all-exceptions.filter";
 import { HttpAdapterHost } from "@nestjs/core";
 import cookieParser from "cookie-parser";
+
+import { AllExceptionsFilter } from "@/common/filters/all-exceptions.filter";
 
 export function setupApp(app: INestApplication): void {
     app.setGlobalPrefix("api");

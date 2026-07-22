@@ -10,15 +10,6 @@ import {
     Res,
     UseGuards,
 } from "@nestjs/common";
-import { UserService } from "./user.service";
-import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
-import { UserResponseDto } from "./dto/user-response.dto";
-import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
-import { PaginatedDto } from "@/common/dto/paginated.dto";
-import { CurrentUser } from "@/auth/decorators/current-user.decorator";
-import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
-import { Response } from "express";
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "@/auth/auth.constants";
 import {
     ApiBearerAuth,
     ApiConflictResponse,
@@ -29,7 +20,18 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { Response } from "express";
+
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "@/auth/auth.constants";
+import { CurrentUser } from "@/auth/decorators/current-user.decorator";
+import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
 import { ApiPaginatedResponse } from "@/common/decorators/api-paginated-response.decorator";
+import { PaginatedDto } from "@/common/dto/paginated.dto";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
+
+import { UserResponseDto } from "./dto/user-response.dto";
+import { UserService } from "./user.service";
 
 @ApiTags("users")
 @ApiBearerAuth()

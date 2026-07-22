@@ -1,9 +1,11 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
 import { ConfigService } from "@nestjs/config";
+import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { REFRESH_COOKIE } from "./auth/auth.constants";
+
 import { setupApp } from "@/common/setup-app";
+
+import { AppModule } from "./app.module";
+import { REFRESH_COOKIE } from "./auth/auth.constants";
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);

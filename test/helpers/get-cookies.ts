@@ -1,4 +1,5 @@
 import { Response } from "supertest";
+
 import { REFRESH_COOKIE } from "@/auth/auth.constants";
 
 export function getRefreshCookie(response: Response): string | undefined {

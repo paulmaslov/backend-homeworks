@@ -1,12 +1,14 @@
 import { ConflictException, NotFoundException } from "@nestjs/common";
+import * as argon2 from "argon2";
 import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
-import * as argon2 from "argon2";
-import { UserService } from "./user.service";
-import { IUserRepository } from "./user.repository.interface";
+
 import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
-import { User } from "./user.model";
+
 import { CreateUserDto } from "./dto/create-user.dto";
+import { User } from "./user.model";
+import { IUserRepository } from "./user.repository.interface";
+import { UserService } from "./user.service";
 
 jest.mock("argon2");
 

@@ -1,20 +1,22 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { UserService } from "@/features/users/user.service";
-import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
-import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
 import { InjectConnection } from "@nestjs/sequelize";
-import { User } from "@/features/users/user.model";
-import { JwtPayload } from "@/common/interfaces/jwt-payload.interface";
-import * as crypto from "crypto";
-import { Transaction } from "sequelize";
-import ms from "ms";
-import type { StringValue } from "ms";
-import { Sequelize } from "sequelize-typescript";
-import { AuthTokensResponseDto } from "./dto/auth-tokens-response.dto";
-import { CreateUserDto } from "@/features/users/dto/create-user.dto";
 import * as argon2 from "argon2";
+import * as crypto from "crypto";
+import type { StringValue } from "ms";
+import ms from "ms";
+import { Transaction } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
+
+import { JwtPayload } from "@/common/interfaces/jwt-payload.interface";
+import { CreateUserDto } from "@/features/users/dto/create-user.dto";
+import { User } from "@/features/users/user.model";
+import { UserService } from "@/features/users/user.service";
+
+import { AuthTokensResponseDto } from "./dto/auth-tokens-response.dto";
 import { LoginDto } from "./dto/login.dto";
+import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
 
 @Injectable()
 export class AuthService {
