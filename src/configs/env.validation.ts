@@ -24,4 +24,12 @@ export const envValidationSchema = Joi.object({
     JWT_ACCESS_SECRET: Joi.string().required(),
     JWT_ACCESS_EXPIRES_IN: Joi.string().default("15m"),
     REFRESH_TOKEN_EXPIRES_IN: Joi.string().default("7d"),
+
+    // s3
+    S3_ENDPOINT: Joi.string().uri().required(),
+    S3_REGION: Joi.string().required(),
+    S3_ACCESS_KEY_ID: Joi.string().required(),
+    S3_SECRET_ACCESS_KEY: Joi.string().required(),
+    S3_BUCKET: Joi.string().required(),
+    S3_PUBLIC_URL: Joi.string().uri().required(),
 });

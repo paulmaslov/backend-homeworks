@@ -24,4 +24,12 @@ export default () => ({
         accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN as string,
         refreshExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
     },
+    s3: {
+        endpoint: process.env.S3_ENDPOINT as string,
+        region: process.env.S3_REGION as string,
+        accessKeyId: process.env.S3_ACCESS_KEY_ID as string,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY as string,
+        bucket: process.env.S3_BUCKET as string,
+        publicUrl: process.env.S3_PUBLIC_URL as string,
+    },
 });
