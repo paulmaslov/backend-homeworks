@@ -3,6 +3,8 @@ import {
     StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 
+import { createMigrator, createSequelize } from "@/databases/migrator";
+
 import { RATE_LIMIT_PERIOD, RATE_LIMIT_REQUESTS } from "./env-defaults";
 
 declare global {
@@ -40,6 +42,20 @@ export default async function globalSetup(): Promise<void> {
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.REFRESH_TOKEN_EXPIRES_IN = "7d";
 
+    process.env.S3_ENDPOINT = "http://localhost:9000";
+    process.env.S3_REGION = "ru-central1";
+    process.env.S3_ACCESS_KEY_ID = "test_access_key";
+    process.env.S3_SECRET_ACCESS_KEY = "test_secret_key";
+    process.env.S3_BUCKET = "test-bucket";
+    process.env.S3_PUBLIC_URL = "http://localhost:9000/test-bucket";
+
+    const sequelize = createSequelize();
+    try {
+        await createMigrator(sequelize).up();
+    } finally {
+        await sequelize.close();
+    }
+    console.log("[e2e] Migrations applied");
     console.log(
         `[e2e] Postgres is ready: ${container.getHost()}:${container.getPort()}`,
     );

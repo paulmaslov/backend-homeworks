@@ -18,11 +18,17 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "jest --config ./test/jest-e2e.json",
+        "test:e2e": "node -r tsconfig-paths/register node_modules/.bin/jest --config ./test/jest-e2e.json",
         "prepare": "husky",
-        "pre-commit": "lint-staged"
+        "pre-commit": "lint-staged",
+        "migration:up": "ts-node -r tsconfig-paths/register src/databases/migrate.ts up",
+        "migration:down": "ts-node -r tsconfig-paths/register src/databases/migrate.ts down",
+        "migration:pending": "ts-node -r tsconfig-paths/register src/databases/migrate.ts pending",
+        "migration:create": "ts-node -r tsconfig-paths/register src/databases/migrate.ts create --name",
+        "migration:up:prod": "node dist/databases/migrate.js up"
     },
     "dependencies": {
+        "@aws-sdk/client-s3": "^3.1093.0",
         "@nestjs/common": "^11.0.1",
         "@nestjs/config": "^4.0.4",
         "@nestjs/core": "^11.0.1",
@@ -36,6 +42,7 @@
         "class-transformer": "^0.5.1",
         "class-validator": "^0.15.1",
         "cookie-parser": "^1.4.7",
+        "dotenv": "^17.4.2",
         "joi": "^18.2.3",
         "ms": "^2.1.3",
         "passport": "^0.7.0",
@@ -45,7 +52,8 @@
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
         "sequelize": "^6.37.8",
-        "sequelize-typescript": "^2.1.6"
+        "sequelize-typescript": "^2.1.6",
+        "umzug": "^3.8.3"
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3.2.0",
@@ -60,6 +68,7 @@
         "@types/express": "^5.0.0",
         "@types/jest": "^29.5.14",
         "@types/ms": "^2.1.0",
+        "@types/multer": "^2.2.0",
         "@types/node": "^22.10.7",
         "@types/passport-jwt": "^4.0.1",
         "@types/sequelize": "^4.28.20",

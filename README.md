@@ -6,7 +6,8 @@ REST API на NestJS для работы с пользователями: рег
 ## Стек
 
 - NestJS 11
-- PostgreSQL 16, Sequelize + sequelize-typescript
+- PostgreSQL 16, Sequelize + sequelize-typescript + umzug
+- MinIO + @aws-sdk/client-s3
 - JWT (access) + refresh-токен в httpOnly cookie
 - argon2 для хэширования паролей
 - class-validator / class-transformer, Swagger, Jest
@@ -17,16 +18,28 @@ REST API на NestJS для работы с пользователями: рег
 
 ```bash
 cp .env.example .env     # значения по умолчанию рабочие для локалки
-docker compose up -d     # поднимает только Postgres, на хосте он висит на порту 5433
+docker compose up -d     # Postgres на 5433, MinIO на 9000 (API) и 9001 (консоль)
 npm install
+npm run migration:up     # создаем схему БД и прогоняем миграции
 npm run start:dev
 ```
 
 Приложение стартует на `http://localhost:3000`, глобальный префикс `/api`,
 версия в URL — `/api/v1/...`. Swagger: `http://localhost:3000/api/v1/docs`.
 
-Схема БД создаётся автоматически при первом старте (`synchronize`), отдельно миграции
-гонять не нужно.
+## Миграции
+
+Схема БД описана миграциями (umzug), `synchronize` выключен - приложение
+не меняет структуру таблиц при старте.
+
+```bash
+npm run migration:up       # накатить непримененные миграции
+npm run migration:down     # откатить последнюю
+npm run migration:pending  # посмотреть, что не применено
+npm run migration:create -- add-something.ts   # создать новую
+```
+
+Файлы с миграциями находятся в `src/databases/migrations`.
 
 ## Что реализовано
 
@@ -85,5 +98,5 @@ npm run test:cov   # с покрытием
 
 Контроллеры, модули и прочую обвязку юнит-тестами намеренно не трогаю: их корректность
 ловится типами и сборкой, а сценарно они закрывались бы e2e-тестами. Поэтому покрытие
- по всему проекту невысокое (~38%) — оно считается по всем файлам, включая тонкую
+по всему проекту невысокое (~38%) — оно считается по всем файлам, включая тонкую
 обвязку, — но на самой логике покрытие полное.
