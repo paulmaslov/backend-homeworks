@@ -2,7 +2,7 @@ import * as AWS from "@aws-sdk/client-s3";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 
-import { S3Lib } from "./constants/do-spaces-service-lib.constant";
+import { S3Lib } from "./constants/s3-lib.constant";
 import { S3Service } from "./s3.service";
 
 @Module({

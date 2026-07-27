@@ -9,7 +9,7 @@ import { S3Service } from "./s3/s3.service";
     providers: [
         {
             provide: IFileService,
-            useClass: S3Service,
+            useExisting: S3Service,
         },
     ],
     exports: [IFileService],

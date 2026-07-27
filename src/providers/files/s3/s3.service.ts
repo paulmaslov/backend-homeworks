@@ -4,7 +4,7 @@ import { ConfigService } from "@nestjs/config";
 
 import { IFileService } from "@/providers/files/files.adapter";
 
-import { S3Lib } from "./constants/do-spaces-service-lib.constant";
+import { S3Lib } from "./constants/s3-lib.constant";
 import { RemoveFilePayloadDto } from "./dto/remove-file-payload.dto";
 import { UploadFilePayloadDto } from "./dto/upload-file-payload.dto";
 import { UploadFileResultDto } from "./dto/upload-file-result.dto";
@@ -31,15 +31,20 @@ export class S3Service extends IFileService {
         this.logger.log("📁 Beginning of uploading file to bucket");
 
         try {
+            // убрал отсюда public read, потому что это дженерик сервис,
+            // который может использоваться для загрузки разных файлов
+            // и политика доступа определяется уже на бакетах
             await this.S3.putObject({
                 Bucket: this.bucketName,
                 Key: path,
                 Body: file.buffer,
-                ACL: "public-read",
                 ContentType: file.mimetype,
             });
         } catch (error) {
-            this.logger.error(`❌ File upload error with path: ${path}`);
+            this.logger.error(
+                `❌ File upload error with path: ${path}`,
+                error instanceof Error ? error.stack : String(error),
+            );
             throw new UploadException(
                 error instanceof Error ? error.message : JSON.stringify(error),
             );
@@ -58,7 +63,10 @@ export class S3Service extends IFileService {
                 Key: path,
             });
         } catch (error) {
-            this.logger.error(`❌ File remove error with path: ${path}`);
+            this.logger.error(
+                `❌ File remove error with path: ${path}`,
+                error instanceof Error ? error.stack : String(error),
+            );
             throw new RemoveException(
                 error instanceof Error ? error.message : JSON.stringify(error),
             );
