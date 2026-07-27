@@ -1,8 +1,8 @@
 export default async function globalTeardown(): Promise<void> {
-    const container = globalThis.__POSTGRES_CONTAINER__;
+    await Promise.all([
+        globalThis.__POSTGRES_CONTAINER__?.stop(),
+        globalThis.__MINIO_CONTAINER__?.stop(),
+    ]);
 
-    if (container) {
-        await container.stop();
-        console.log("[e2e] Postgres container is down");
-    }
+    console.log("[e2e] Containers are down");
 }

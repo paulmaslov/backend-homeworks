@@ -63,7 +63,9 @@
         "@nestjs/testing": "^11.0.1",
         "@swc/cli": "^0.6.0",
         "@swc/core": "^1.10.7",
+        "@testcontainers/minio": "^12.0.4",
         "@testcontainers/postgresql": "^12.0.4",
+        "@testcontainers/redis": "^12.0.4",
         "@types/cookie-parser": "^1.4.10",
         "@types/express": "^5.0.0",
         "@types/jest": "^29.5.14",
@@ -108,7 +110,8 @@
             "^.+\\.(t|j)s$": "ts-jest"
         },
         "collectCoverageFrom": [
-            "**/*.(t|j)s"
+            "**/*.(t|j)s",
+            "!**/testing/**"
         ],
         "coverageDirectory": "../coverage",
         "testEnvironment": "node",
