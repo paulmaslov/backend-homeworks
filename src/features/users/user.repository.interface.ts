@@ -60,4 +60,9 @@ export abstract class IUserRepository {
         email: string,
         transaction?: Transaction,
     ): Promise<User | null>;
+
+    abstract findByIdForUpdate(
+        id: string,
+        transaction: Transaction,
+    ): Promise<User | null>;
 }

@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
+import { AvatarsModule } from "@/features/avatars/avatars.module";
+
 import { AuthModule } from "./auth/auth.module";
 import { ConfigsModule } from "./configs/config.module";
 import { UsersModule } from "./features/users/users.module";
@@ -14,6 +16,7 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
         PostgresqlModule,
         UsersModule,
         AuthModule,
+        AvatarsModule,
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({

@@ -147,4 +147,19 @@ export class UserService {
     async findById(id: string): Promise<User | null> {
         return this.userRepository.findById(id);
     }
+
+    async lockByIdOrFail(
+        userId: string,
+        transaction: Transaction,
+    ): Promise<User> {
+        const user = await this.userRepository.findByIdForUpdate(
+            userId,
+            transaction,
+        );
+        if (!user) {
+            throw new NotFoundException(`User with id ${userId} not found`);
+        }
+
+        return user;
+    }
 }

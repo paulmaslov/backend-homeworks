@@ -92,4 +92,14 @@ export class UserRepository
             this.withTx({ where: { email } }, transaction),
         );
     }
+
+    async findByIdForUpdate(
+        id: string,
+        transaction: Transaction,
+    ): Promise<User | null> {
+        return this.model.findByPk(id, {
+            transaction,
+            lock: Transaction.LOCK.UPDATE,
+        });
+    }
 }

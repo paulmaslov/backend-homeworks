@@ -38,6 +38,7 @@ describe("UserService", () => {
             findAndCount: jest.fn(),
             update: jest.fn(),
             softDelete: jest.fn(),
+            findByIdForUpdate: jest.fn(),
         };
 
         refreshTokenRepository = {
