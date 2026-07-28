@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import { Column, DataType, DeletedAt, Table } from "sequelize-typescript";
 
 import { BaseModel } from "@/common/models/base.model";
@@ -17,6 +18,11 @@ interface UserCreationAttrs {
     indexes: [
         { unique: true, fields: ["login"], where: { deletedAt: null } },
         { unique: true, fields: ["email"], where: { deletedAt: null } },
+        {
+            name: "users_age_active_with_description",
+            fields: ["age", "id"],
+            where: { deletedAt: null, description: { [Op.ne]: "" } },
+        },
     ],
 })
 export class User extends BaseModel<User, UserCreationAttrs> {

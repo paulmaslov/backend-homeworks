@@ -11,6 +11,7 @@ import {
     UseGuards,
 } from "@nestjs/common";
 import {
+    ApiBadRequestResponse,
     ApiBearerAuth,
     ApiConflictResponse,
     ApiNoContentResponse,
@@ -27,6 +28,10 @@ import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
 import { ApiPaginatedResponse } from "@/common/decorators/api-paginated-response.decorator";
 import { PaginatedDto } from "@/common/dto/paginated.dto";
+import { AgeRangePipe } from "@/common/pipes/age-range.pipe";
+import { ActiveUserService } from "@/features/users/active-user.service";
+import { ActiveUsersPageResponseDto } from "@/features/users/dto/active-user-response.dto";
+import { ListActiveUsersQueryDto } from "@/features/users/dto/list-active-users.dto";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
 
@@ -38,7 +43,10 @@ import { UserService } from "./user.service";
 @UseGuards(AccessTokenGuard)
 @Controller("users")
 export class UsersController {
-    constructor(private readonly userService: UserService) {}
+    constructor(
+        private readonly userService: UserService,
+        private readonly activeUserService: ActiveUserService,
+    ) {}
 
     @ApiOperation({ summary: "Get the authenticated user's profile" })
     @ApiOkResponse({ type: UserResponseDto })
@@ -83,5 +91,18 @@ export class UsersController {
         @Query() query: ListUsersQueryDto,
     ): Promise<PaginatedDto<UserResponseDto>> {
         return this.userService.findAll(query);
+    }
+
+    @ApiOperation({ summary: "List the most active users" })
+    @ApiOkResponse({ type: ActiveUsersPageResponseDto })
+    @ApiBadRequestResponse({
+        description: "Invalid query params or cursor or Query took too long",
+    })
+    @ApiUnauthorizedResponse({ description: "Not authenticated" })
+    @Get("active")
+    async findActive(
+        @Query(AgeRangePipe) query: ListActiveUsersQueryDto,
+    ): Promise<ActiveUsersPageResponseDto> {
+        return this.activeUserService.findActive(query);
     }
 }

@@ -25,8 +25,8 @@ interface AvatarCreationAttrs {
 
     indexes: [
         {
-            name: "avatars_user_id_active",
-            fields: ["userId"],
+            name: "avatars_user_id_created_at_active",
+            fields: ["userId", "createdAt", "id"],
             where: { deletedAt: null },
         },
     ],
