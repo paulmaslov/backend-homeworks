@@ -35,11 +35,11 @@ describe("CurrentUser decorator", () => {
     const factory = getFactory();
     const user = { userId: "user-1", login: "john" };
 
-    it("✅ returns the whole user when no field is requested", () => {
+    it("Returns the whole user when no field is requested", () => {
         expect(factory(undefined, makeCtx(user))).toEqual(user);
     });
 
-    it("✅ returns a single field when a key is requested", () => {
+    it("Returns a single field when a key is requested", () => {
         expect(factory("userId", makeCtx(user))).toBe("user-1");
     });
 });

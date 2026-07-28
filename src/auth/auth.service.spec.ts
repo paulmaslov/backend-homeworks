@@ -77,7 +77,7 @@ describe("AuthService", () => {
     });
 
     describe("login", () => {
-        it("❌ throws UnauthorizedException when the user is not found", async () => {
+        it("Throws UnauthorizedException when the user is not found", async () => {
             userService.findByLogin.mockResolvedValue(null);
 
             await expect(
@@ -86,7 +86,7 @@ describe("AuthService", () => {
             expect(argon2.verify).not.toHaveBeenCalled();
         });
 
-        it("❌ throws UnauthorizedException when the password is invalid", async () => {
+        it("Throws UnauthorizedException when the password is invalid", async () => {
             userService.findByLogin.mockResolvedValue(makeUser());
             jest.mocked(argon2.verify).mockResolvedValue(false);
 
@@ -95,7 +95,7 @@ describe("AuthService", () => {
             ).rejects.toThrow(UnauthorizedException);
         });
 
-        it("✅ returns a token pair for valid credentials", async () => {
+        it("Returns a token pair for valid credentials", async () => {
             userService.findByLogin.mockResolvedValue(makeUser());
             jest.mocked(argon2.verify).mockResolvedValue(true);
 
@@ -111,7 +111,7 @@ describe("AuthService", () => {
     });
 
     describe("refresh", () => {
-        it("❌ throws UnauthorizedException when the token is not found", async () => {
+        it("Throws UnauthorizedException when the token is not found", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue(null);
 
             await expect(service.refresh("raw-token")).rejects.toThrow(
@@ -119,7 +119,7 @@ describe("AuthService", () => {
             );
         });
 
-        it("❌ throws UnauthorizedException and deletes an expired token", async () => {
+        it("Throws UnauthorizedException and deletes an expired token", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue({
                 userId: "user-1",
                 expiresAt: new Date(Date.now() - 1000),
@@ -131,7 +131,7 @@ describe("AuthService", () => {
             expect(refreshTokenRepository.deleteByTokenHash).toHaveBeenCalled();
         });
 
-        it("✅ rotates the token and returns a new pair", async () => {
+        it("Rotates the token and returns a new pair", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue({
                 userId: "user-1",
                 expiresAt: new Date(Date.now() + 60000),
@@ -147,7 +147,7 @@ describe("AuthService", () => {
     });
 
     describe("register", () => {
-        it("✅ creates the user and issues a token pair", async () => {
+        it("Creates the user and issues a token pair", async () => {
             userService.create.mockResolvedValue(makeUser());
 
             const result = await service.register({
@@ -164,7 +164,7 @@ describe("AuthService", () => {
     });
 
     describe("logout", () => {
-        it("✅ deletes the refresh token by its hash", async () => {
+        it("Deletes the refresh token by its hash", async () => {
             await service.logout("raw-token");
 
             expect(

@@ -71,7 +71,7 @@ describe("UserService", () => {
             age: 25,
         } as CreateUserDto;
 
-        it("❌ throws ConflictException when the login already exists", async () => {
+        it("Throws ConflictException when the login already exists", async () => {
             userRepository.findByLogin.mockResolvedValue(makeUser());
 
             await expect(service.create(dto)).rejects.toThrow(
@@ -80,7 +80,7 @@ describe("UserService", () => {
             expect(userRepository.create).not.toHaveBeenCalled();
         });
 
-        it("❌ throws ConflictException when the email already exists", async () => {
+        it("Throws ConflictException when the email already exists", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(makeUser());
 
@@ -90,7 +90,7 @@ describe("UserService", () => {
             expect(userRepository.create).not.toHaveBeenCalled();
         });
 
-        it("❌ maps a UniqueConstraintError to ConflictException", async () => {
+        it("Maps a UniqueConstraintError to ConflictException", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
             userRepository.create.mockRejectedValue(
@@ -102,7 +102,7 @@ describe("UserService", () => {
             );
         });
 
-        it("✅ hashes the password and stores the hash, not the raw value", async () => {
+        it("Hashes the password and stores the hash, not the raw value", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
             const created = makeUser();
@@ -122,7 +122,7 @@ describe("UserService", () => {
     describe("update", () => {
         const userId = "user-1";
 
-        it("❌ throws ConflictException when the login is taken by another user", async () => {
+        it("Throws ConflictException when the login is taken by another user", async () => {
             userRepository.findByLogin.mockResolvedValue(
                 makeUser({ id: "other" }),
             );
@@ -132,7 +132,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("❌ throws ConflictException when the email is taken by another user", async () => {
+        it("Throws ConflictException when the email is taken by another user", async () => {
             userRepository.findByEmail.mockResolvedValue(
                 makeUser({ id: "other" }),
             );
@@ -144,7 +144,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("❌ throws NotFoundException when the user does not exist", async () => {
+        it("Throws NotFoundException when the user does not exist", async () => {
             userRepository.update.mockResolvedValue(null);
 
             await expect(service.update(userId, { age: 30 })).rejects.toThrow(
@@ -152,7 +152,7 @@ describe("UserService", () => {
             );
         });
 
-        it("❌ maps a UniqueConstraintError to ConflictException", async () => {
+        it("Maps a UniqueConstraintError to ConflictException", async () => {
             userRepository.update.mockRejectedValue(
                 new UniqueConstraintError({ errors: [] }),
             );
@@ -162,7 +162,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("✅ does not conflict when the login belongs to the same user", async () => {
+        it("Does not conflict when the login belongs to the same user", async () => {
             userRepository.findByLogin.mockResolvedValue(
                 makeUser({ id: userId }),
             );
@@ -173,7 +173,7 @@ describe("UserService", () => {
             ).resolves.toBeDefined();
         });
 
-        it("✅ returns a UserResponseDto without the password", async () => {
+        it("Returns a UserResponseDto without the password", async () => {
             userRepository.update.mockResolvedValue(
                 makeUser({ password: "secret-hash" }),
             );
@@ -188,7 +188,7 @@ describe("UserService", () => {
     });
 
     describe("remove", () => {
-        it("❌ throws NotFoundException when nothing was deleted", async () => {
+        it("Throws NotFoundException when nothing was deleted", async () => {
             userRepository.softDelete.mockResolvedValue(0);
 
             await expect(service.remove("user-1")).rejects.toThrow(
@@ -199,7 +199,7 @@ describe("UserService", () => {
             ).not.toHaveBeenCalled();
         });
 
-        it("✅ soft-deletes the user and revokes refresh tokens", async () => {
+        it("Soft-deletes the user and revokes refresh tokens", async () => {
             userRepository.softDelete.mockResolvedValue(1);
             refreshTokenRepository.deleteByUserId.mockResolvedValue(2);
 
@@ -217,7 +217,7 @@ describe("UserService", () => {
     });
 
     describe("findAll", () => {
-        it("✅ computes the offset from page and limit", async () => {
+        it("Computes the offset from page and limit", async () => {
             userRepository.findAndCount.mockResolvedValue({
                 rows: [],
                 count: 0,
@@ -232,7 +232,7 @@ describe("UserService", () => {
             });
         });
 
-        it("✅ maps rows to UserResponseDto without password and builds meta", async () => {
+        it("Maps rows to UserResponseDto without password and builds meta", async () => {
             userRepository.findAndCount.mockResolvedValue({
                 rows: [makeUser({ password: "secret" })],
                 count: 1,

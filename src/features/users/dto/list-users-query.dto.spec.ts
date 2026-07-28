@@ -19,28 +19,28 @@ describe("ListUsersQueryDto validation", () => {
         metatype: ListUsersQueryDto,
     };
 
-    describe("❌ negative", () => {
-        it("rejects a limit above 100", async () => {
+    describe("Negative tests", () => {
+        it("Rejects a limit above 100", async () => {
             await expect(
                 pipe.transform({ limit: "101" }, meta),
             ).rejects.toThrow(BadRequestException);
         });
 
-        it("rejects a page below 1", async () => {
+        it("Rejects a page below 1", async () => {
             await expect(pipe.transform({ page: "0" }, meta)).rejects.toThrow(
                 BadRequestException,
             );
         });
 
-        it("rejects a non-integer page", async () => {
+        it("Rejects a non-integer page", async () => {
             await expect(pipe.transform({ page: "abc" }, meta)).rejects.toThrow(
                 BadRequestException,
             );
         });
     });
 
-    describe("✅ positive", () => {
-        it("applies defaults when no params are given", async () => {
+    describe("Positive tests", () => {
+        it("Applies defaults when no params are given", async () => {
             const result = (await pipe.transform(
                 {},
                 meta,
@@ -50,7 +50,7 @@ describe("ListUsersQueryDto validation", () => {
             expect(result.limit).toBe(20);
         });
 
-        it("coerces string query params to numbers", async () => {
+        it("Coerces string query params to numbers", async () => {
             const result = (await pipe.transform(
                 { page: "2", limit: "50" },
                 meta,
