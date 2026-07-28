@@ -1,5 +1,5 @@
 import { Avatar } from "@/features/avatars/avatar.model";
-import { AVATARS_FOLDER } from "@/features/avatars/avatars.constants";
+import { buildAvatarUrl } from "@/features/avatars/avatar-url";
 
 export class AvatarResponseDto {
     readonly id: string;
@@ -8,7 +8,7 @@ export class AvatarResponseDto {
 
     constructor(avatar: Avatar, publicUrl: string) {
         this.id = avatar.id;
-        this.url = `${publicUrl}/${AVATARS_FOLDER}/${avatar.fileName}`;
+        this.url = buildAvatarUrl(publicUrl, avatar.fileName);
         this.createdAt = avatar.createdAt;
     }
 }
