@@ -29,55 +29,6 @@ export class AuthService {
         @InjectConnection() private readonly sequelize: Sequelize,
     ) {}
 
-    private signAccessToken(user: User): string {
-        const payload: JwtPayload = {
-            sub: user.id,
-        };
-
-        return this.jwtService.sign(payload);
-    }
-
-    private generateRefreshToken(): { raw: string; hash: string } {
-        const raw = crypto.randomBytes(64).toString("hex");
-        const hash = this.hashRefreshToken(raw);
-        return { raw, hash };
-    }
-
-    private hashRefreshToken(raw: string): string {
-        return crypto.createHash("sha256").update(raw).digest("hex");
-    }
-
-    private async issueRefreshToken(
-        userId: string,
-        transaction?: Transaction,
-    ): Promise<string> {
-        const { raw, hash } = this.generateRefreshToken();
-
-        const refreshExpiresIn = this.config.getOrThrow<string>(
-            "jwt.refreshExpiresIn",
-        );
-        const expiresAt = new Date(
-            Date.now() + ms(refreshExpiresIn as StringValue),
-        );
-
-        await this.refreshTokenRepository.create(
-            { tokenHash: hash, userId, expiresAt },
-            transaction,
-        );
-
-        return raw;
-    }
-
-    private async issueTokenPair(
-        user: User,
-        transaction?: Transaction,
-    ): Promise<AuthTokensResponseDto> {
-        const accessToken = this.signAccessToken(user);
-        const refreshToken = await this.issueRefreshToken(user.id, transaction);
-        return { accessToken, refreshToken };
-    }
-
-    // Во время регистрации мы создаем пользователя и выдаем пару токенов
     // нам нужно создать юзера и рефреш токен атомарно
     async register(dto: CreateUserDto): Promise<AuthTokensResponseDto> {
         return this.sequelize.transaction(async (transaction) => {
@@ -142,5 +93,54 @@ export class AuthService {
     async logout(rawRefreshToken: string): Promise<void> {
         const tokenHash = this.hashRefreshToken(rawRefreshToken);
         await this.refreshTokenRepository.deleteByTokenHash(tokenHash);
+    }
+
+    private signAccessToken(user: User): string {
+        const payload: JwtPayload = {
+            sub: user.id,
+        };
+
+        return this.jwtService.sign(payload);
+    }
+
+    // во время регистрации мы создаем пользователя и выдаем пару токенов
+    private generateRefreshToken(): { raw: string; hash: string } {
+        const raw = crypto.randomBytes(64).toString("hex");
+        const hash = this.hashRefreshToken(raw);
+        return { raw, hash };
+    }
+
+    private hashRefreshToken(raw: string): string {
+        return crypto.createHash("sha256").update(raw).digest("hex");
+    }
+
+    private async issueRefreshToken(
+        userId: string,
+        transaction?: Transaction,
+    ): Promise<string> {
+        const { raw, hash } = this.generateRefreshToken();
+
+        const refreshExpiresIn = this.config.getOrThrow<string>(
+            "jwt.refreshExpiresIn",
+        );
+        const expiresAt = new Date(
+            Date.now() + ms(refreshExpiresIn as StringValue),
+        );
+
+        await this.refreshTokenRepository.create(
+            { tokenHash: hash, userId, expiresAt },
+            transaction,
+        );
+
+        return raw;
+    }
+
+    private async issueTokenPair(
+        user: User,
+        transaction?: Transaction,
+    ): Promise<AuthTokensResponseDto> {
+        const accessToken = this.signAccessToken(user);
+        const refreshToken = await this.issueRefreshToken(user.id, transaction);
+        return { accessToken, refreshToken };
     }
 }
