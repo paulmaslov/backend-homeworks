@@ -4,23 +4,28 @@ import {
     PostgreSqlContainer,
     StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
+import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
 
 import { createMigrator, createSequelize } from "@/databases/migrator";
 
 import {
     RATE_LIMIT_PERIOD,
     RATE_LIMIT_REQUESTS,
+    REDIS_PASSWORD,
     S3_BUCKET,
     S3_REGION,
+    USERS_CACHE_TTL,
 } from "./env-defaults";
 
 declare global {
     var __POSTGRES_CONTAINER__: StartedPostgreSqlContainer | undefined;
     var __MINIO_CONTAINER__: StartedMinioContainer | undefined;
+    var __REDIS_CONTAINER__: StartedRedisContainer | undefined;
 }
 
 const POSTGRES_IMAGE = "postgres:16-alpine";
 const MINIO_IMAGE = "minio/minio";
+const REDIS_IMAGE = "redis:7-alpine";
 
 // политика как в compose :
 const buildPublicReadPolicy = (bucket: string): string =>
@@ -96,6 +101,24 @@ async function startMinio(): Promise<void> {
     console.log(`[e2e] MinIO is ready: ${endpoint}, bucket "${S3_BUCKET}"`);
 }
 
+async function startRedis(): Promise<void> {
+    console.log("[e2e] Starting redis container...");
+
+    const container = await new RedisContainer(REDIS_IMAGE)
+        .withPassword(REDIS_PASSWORD)
+        .start();
+
+    globalThis.__REDIS_CONTAINER__ = container;
+
+    process.env.REDIS_HOST = container.getHost();
+    process.env.REDIS_PORT = String(container.getPort());
+    process.env.REDIS_PASSWORD = container.getPassword();
+
+    console.log(
+        `[e2e] Redis is ready: ${container.getHost()}:${container.getPort()}`,
+    );
+}
+
 export default async function globalSetup(): Promise<void> {
     process.env.NODE_ENV = "test";
     process.env.PORT = "3001";
@@ -107,7 +130,9 @@ export default async function globalSetup(): Promise<void> {
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.REFRESH_TOKEN_EXPIRES_IN = "7d";
 
-    await Promise.all([startPostgres(), startMinio()]);
+    process.env.USERS_CACHE_TTL = USERS_CACHE_TTL;
+
+    await Promise.all([startPostgres(), startMinio(), startRedis()]);
 
     const sequelize = createSequelize();
     try {

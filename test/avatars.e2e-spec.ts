@@ -1,4 +1,4 @@
-import { INestApplication } from "@nestjs/common";
+import { INestApplication, Logger } from "@nestjs/common";
 import { getModelToken } from "@nestjs/sequelize";
 
 import { Avatar } from "@/features/avatars/avatar.model";
@@ -207,6 +207,9 @@ describe("Avatars (e2e)", () => {
             jest.spyOn(avatarRepository, "create").mockRejectedValueOnce(
                 new Error("db is down"),
             );
+            // специально роняем бд не выводим ошибку осознанно,
+            // чтобы она не засоряла вывод тестов
+            jest.spyOn(Logger.prototype, "error").mockImplementation(() => {});
 
             await uploadAvatar(accessToken).expect(500);
 

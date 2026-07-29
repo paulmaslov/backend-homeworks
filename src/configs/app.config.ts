@@ -32,4 +32,12 @@ export default () => ({
         bucket: process.env.S3_BUCKET as string,
         publicUrl: process.env.S3_PUBLIC_URL as string,
     },
+    redis: {
+        host: process.env.REDIS_HOST as string,
+        port: parseInt(process.env.REDIS_PORT as string, 10),
+        password: process.env.REDIS_PASSWORD as string,
+    },
+    cache: {
+        userTtlMs: ms(process.env.USERS_CACHE_TTL as StringValue),
+    },
 });

@@ -4,6 +4,8 @@ import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
 import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UserCache } from "@/features/users/user-cache.service";
 
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
@@ -27,6 +29,7 @@ describe("UserService", () => {
     let service: UserService;
     let userRepository: jest.Mocked<IUserRepository>;
     let refreshTokenRepository: jest.Mocked<IRefreshTokenRepository>;
+    let userCache: jest.Mocked<UserCache>;
 
     beforeEach(() => {
         userRepository = {
@@ -54,10 +57,23 @@ describe("UserService", () => {
             ),
         } as unknown as Sequelize;
 
+        userCache = {
+            wrapProfile: jest.fn(
+                (_userId: string, load: () => Promise<unknown>) => load(),
+            ),
+            wrapList: jest.fn(
+                (_query: ListUsersQueryDto, load: () => Promise<unknown>) =>
+                    load(),
+            ),
+            invalidateProfile: jest.fn(),
+            invalidateList: jest.fn(),
+        } as unknown as jest.Mocked<UserCache>;
+
         service = new UserService(
             userRepository,
             refreshTokenRepository,
             sequelize,
+            userCache,
         );
 
         jest.mocked(argon2.hash).mockResolvedValue("hashed-password");
@@ -116,6 +132,39 @@ describe("UserService", () => {
                 undefined,
             );
             expect(result).toBe(created);
+        });
+
+        it("Invalidates the users list", async () => {
+            userRepository.findByLogin.mockResolvedValue(null);
+            userRepository.findByEmail.mockResolvedValue(null);
+            userRepository.create.mockResolvedValue(makeUser());
+
+            await service.create(dto);
+
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
+
+        it("Invalidates the users list only after the transaction is committed", async () => {
+            let commitHook: (() => Promise<void>) | undefined;
+            const transaction = {
+                afterCommit: (hook: () => Promise<void>) => {
+                    commitHook = hook;
+                },
+            } as unknown as Transaction;
+
+            userRepository.findByLogin.mockResolvedValue(null);
+            userRepository.findByEmail.mockResolvedValue(null);
+            userRepository.create.mockResolvedValue(makeUser());
+
+            await service.create(dto, transaction);
+
+            // до коммита нового пользователя не видно другим сессиям
+            expect(userCache.invalidateList).not.toHaveBeenCalled();
+
+            expect(commitHook).toBeDefined();
+            await commitHook?.();
+
+            expect(userCache.invalidateList).toHaveBeenCalled();
         });
     });
 
@@ -185,6 +234,15 @@ describe("UserService", () => {
             expect(result).not.toHaveProperty("password");
             expect(result.id).toBe("user-1");
         });
+
+        it("Drops the cached profile and the users list", async () => {
+            userRepository.update.mockResolvedValue(makeUser());
+
+            await service.update(userId, { age: 30 });
+
+            expect(userCache.invalidateProfile).toHaveBeenCalledWith(userId);
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
     });
 
     describe("remove", () => {
@@ -213,6 +271,27 @@ describe("UserService", () => {
                 "user-1",
                 expect.anything(),
             );
+        });
+
+        it("Drops the cached profile and the users list", async () => {
+            userRepository.softDelete.mockResolvedValue(1);
+            refreshTokenRepository.deleteByUserId.mockResolvedValue(1);
+
+            await service.remove("user-1");
+
+            expect(userCache.invalidateProfile).toHaveBeenCalledWith("user-1");
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
+
+        it("Keeps the cache untouched when the user was not found", async () => {
+            userRepository.softDelete.mockResolvedValue(0);
+
+            await expect(service.remove("user-1")).rejects.toThrow(
+                NotFoundException,
+            );
+
+            expect(userCache.invalidateProfile).not.toHaveBeenCalled();
+            expect(userCache.invalidateList).not.toHaveBeenCalled();
         });
     });
 
@@ -250,6 +329,19 @@ describe("UserService", () => {
                 limit: 20,
                 totalPages: 1,
             });
+        });
+    });
+
+    describe("getProfile", () => {
+        it("Returns a UserResponseDto without the password", async () => {
+            userRepository.findByIdOrFail.mockResolvedValue(
+                makeUser({ password: "secret-hash" }),
+            );
+
+            const result = await service.getProfile("user-1");
+
+            expect(result).not.toHaveProperty("password");
+            expect(result.id).toBe("user-1");
         });
     });
 });

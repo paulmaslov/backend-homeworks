@@ -32,4 +32,12 @@ export const envValidationSchema = Joi.object({
     S3_SECRET_ACCESS_KEY: Joi.string().required(),
     S3_BUCKET: Joi.string().required(),
     S3_PUBLIC_URL: Joi.string().uri().required(),
+
+    // redis
+    REDIS_HOST: Joi.string().required(),
+    REDIS_PORT: Joi.number().required(),
+    REDIS_PASSWORD: Joi.string().required(),
+
+    // cache
+    USERS_CACHE_TTL: Joi.string().default("30s"),
 });

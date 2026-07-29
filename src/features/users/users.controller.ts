@@ -56,8 +56,7 @@ export class UsersController {
     async getMyProfile(
         @CurrentUser("userId") userId: string,
     ): Promise<UserResponseDto> {
-        const user = await this.userService.findByIdOrFail(userId);
-        return new UserResponseDto(user);
+        return await this.userService.getProfile(userId);
     }
 
     @ApiOperation({ summary: "Update the authenticated user's profile" })

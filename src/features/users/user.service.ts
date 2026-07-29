@@ -13,6 +13,7 @@ import { PaginatedDto } from "@/common/dto/paginated.dto";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
 import { UserResponseDto } from "@/features/users/dto/user-response.dto";
+import { UserCache } from "@/features/users/user-cache.service";
 
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
@@ -24,6 +25,7 @@ export class UserService {
         private readonly userRepository: IUserRepository,
         private readonly refreshTokenRepository: IRefreshTokenRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
+        private readonly userCache: UserCache,
     ) {}
 
     async create(dto: CreateUserDto, transaction?: Transaction): Promise<User> {
@@ -45,8 +47,9 @@ export class UserService {
 
         const passwordHash = await argon2.hash(dto.password);
 
+        let user: User;
         try {
-            return await this.userRepository.create(
+            user = await this.userRepository.create(
                 {
                     login: dto.login,
                     email: dto.email,
@@ -64,6 +67,9 @@ export class UserService {
             }
             throw error;
         }
+
+        await this.invalidateListAfterCommit(transaction);
+        return user;
     }
 
     async update(userId: string, dto: UpdateUserDto): Promise<UserResponseDto> {
@@ -100,6 +106,12 @@ export class UserService {
         if (!updated) {
             throw new NotFoundException(`User with id ${userId} not found`);
         }
+
+        await Promise.all([
+            this.userCache.invalidateProfile(userId),
+            this.userCache.invalidateList(),
+        ]);
+
         return new UserResponseDto(updated);
     }
 
@@ -117,23 +129,28 @@ export class UserService {
                 transaction,
             );
         });
+
+        await Promise.all([
+            this.userCache.invalidateProfile(userId),
+            this.userCache.invalidateList(),
+        ]);
     }
 
     async findAll(
         query: ListUsersQueryDto,
     ): Promise<PaginatedDto<UserResponseDto>> {
-        const { page, limit, search } = query;
-        const offset = (page - 1) * limit;
+        return this.userCache.wrapList(query, () => this.loadPage(query));
+    }
 
-        const { rows, count } = await this.userRepository.findAndCount({
-            limit,
-            offset,
-            search,
-        });
-
-        // маппим, чтобы не было хеша пароля в ответе
-        const data = rows.map((user) => new UserResponseDto(user));
-        return new PaginatedDto(data, count, page, limit);
+    // чтобы пароль пользователя не уходил в редис
+    async getProfile(userId: string): Promise<UserResponseDto> {
+        return this.userCache.wrapProfile(
+            userId,
+            async () =>
+                new UserResponseDto(
+                    await this.userRepository.findByIdOrFail(userId),
+                ),
+        );
     }
 
     async findByLogin(login: string): Promise<User | null> {
@@ -161,5 +178,35 @@ export class UserService {
         }
 
         return user;
+    }
+
+    private async loadPage(
+        query: ListUsersQueryDto,
+    ): Promise<PaginatedDto<UserResponseDto>> {
+        const { page, limit, search } = query;
+        const offset = (page - 1) * limit;
+
+        const { rows, count } = await this.userRepository.findAndCount({
+            limit,
+            offset,
+            search,
+        });
+
+        // маппим, чтобы не было хеша пароля в ответе
+        const data = rows.map((user) => new UserResponseDto(user));
+        return new PaginatedDto(data, count, page, limit);
+    }
+
+    // сбрасываем список только после коммита транзакции, если бы мы сбрасывали
+    // версию сразу, нового пользователя не было бы видно в последней версии
+    private async invalidateListAfterCommit(
+        transaction?: Transaction,
+    ): Promise<void> {
+        if (!transaction) {
+            await this.userCache.invalidateList();
+            return;
+        }
+
+        transaction.afterCommit(() => this.userCache.invalidateList());
     }
 }
