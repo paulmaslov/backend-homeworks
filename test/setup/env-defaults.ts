@@ -7,3 +7,5 @@ export const S3_BUCKET = "avatars";
 export const REDIS_PASSWORD = "test_redis_password";
 
 export const USERS_CACHE_TTL = "30s";
+
+export const IDEMPOTENCY_KEY_TTL = "24h";

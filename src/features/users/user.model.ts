@@ -44,4 +44,12 @@ export class User extends BaseModel<User, UserCreationAttrs> {
 
     @DeletedAt
     declare deletedAt: Date | null;
+
+    // все операции с числами будет делать sql
+    @Column({
+        type: DataType.DECIMAL(19, 2),
+        allowNull: false,
+        defaultValue: "0",
+    })
+    declare balance: string;
 }

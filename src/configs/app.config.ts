@@ -40,4 +40,7 @@ export default () => ({
     cache: {
         userTtlMs: ms(process.env.USERS_CACHE_TTL as StringValue),
     },
+    wallet: {
+        idempotencyTtlMs: ms(process.env.IDEMPOTENCY_KEY_TTL as StringValue),
+    },
 });

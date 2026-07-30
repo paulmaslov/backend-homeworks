@@ -65,4 +65,24 @@ export abstract class IUserRepository {
         id: string,
         transaction: Transaction,
     ): Promise<User | null>;
+
+    // списать со счета
+    // возвращает false, если не хватило средств
+    abstract debit(
+        id: string,
+        amount: string,
+        transaction: Transaction,
+    ): Promise<boolean>;
+
+    // зачислить на счет
+    // false - строки нет (пользователь удален или не существует)
+    // выход за верхний предел баланса вызывает ошибку
+    abstract credit(
+        id: string,
+        amount: string,
+        transaction: Transaction,
+    ): Promise<boolean>;
+
+    // чтобы в сервис кошелька не отдавать хеш пароля
+    abstract findBalance(id: string): Promise<string | null>;
 }

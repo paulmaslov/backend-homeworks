@@ -25,7 +25,9 @@
         "migration:down": "ts-node -r tsconfig-paths/register src/databases/migrate.ts down",
         "migration:pending": "ts-node -r tsconfig-paths/register src/databases/migrate.ts pending",
         "migration:create": "ts-node -r tsconfig-paths/register src/databases/migrate.ts create --name",
-        "migration:up:prod": "node dist/databases/migrate.js up"
+        "migration:up:prod": "node dist/databases/migrate.js up",
+        "keys:cleanup": "ts-node -r tsconfig-paths/register src/scripts/cleanup-idempotency-keys.ts",
+        "keys:cleanup:prod": "node dist/scripts/cleanup-idempotency-keys.js"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1093.0",

@@ -4,6 +4,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { AvatarsModule } from "@/features/avatars/avatars.module";
+import { WalletModule } from "@/features/wallet/wallet.module";
 
 import { AuthModule } from "./auth/auth.module";
 import { ConfigsModule } from "./configs/config.module";
@@ -17,6 +18,7 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
         UsersModule,
         AuthModule,
         AvatarsModule,
+        WalletModule,
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({

@@ -40,4 +40,9 @@ export const envValidationSchema = Joi.object({
 
     // cache
     USERS_CACHE_TTL: Joi.string().default("30s"),
+
+    // wallet
+    IDEMPOTENCY_KEY_TTL: Joi.string()
+        .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
+        .default("24h"),
 });

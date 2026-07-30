@@ -9,6 +9,7 @@ import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
 import { createMigrator, createSequelize } from "@/databases/migrator";
 
 import {
+    IDEMPOTENCY_KEY_TTL,
     RATE_LIMIT_PERIOD,
     RATE_LIMIT_REQUESTS,
     REDIS_PASSWORD,
@@ -131,6 +132,7 @@ export default async function globalSetup(): Promise<void> {
     process.env.REFRESH_TOKEN_EXPIRES_IN = "7d";
 
     process.env.USERS_CACHE_TTL = USERS_CACHE_TTL;
+    process.env.IDEMPOTENCY_KEY_TTL = IDEMPOTENCY_KEY_TTL;
 
     await Promise.all([startPostgres(), startMinio(), startRedis()]);
 
