@@ -22,6 +22,7 @@ describe("Users cache (e2e)", () => {
     beforeAll(async () => {
         app = await createTestApp();
         userModel = app.get<typeof User>(getModelToken(User));
+        await app.listen(0);
     });
 
     beforeEach(async () => {

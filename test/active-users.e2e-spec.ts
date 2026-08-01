@@ -30,6 +30,7 @@ describe("Active users (e2e)", () => {
 
     beforeAll(async () => {
         app = await createTestApp();
+        await app.listen(0);
     });
 
     beforeEach(async () => {

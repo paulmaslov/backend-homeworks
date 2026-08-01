@@ -37,6 +37,8 @@ describe("Avatars (e2e)", () => {
     beforeAll(async () => {
         app = await createTestApp();
         avatarModel = app.get<typeof Avatar>(getModelToken(Avatar));
+
+        await app.listen(0);
     });
 
     beforeEach(async () => {

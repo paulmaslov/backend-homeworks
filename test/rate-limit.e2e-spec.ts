@@ -28,6 +28,7 @@ describe("Rate limit (e2e)", () => {
         process.env.RATE_LIMIT_PERIOD = PERIOD;
 
         app = await createTestApp();
+        await app.listen(0);
     });
 
     beforeEach(async () => {
