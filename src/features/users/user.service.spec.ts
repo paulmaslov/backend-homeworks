@@ -45,6 +45,8 @@ describe("UserService", () => {
             debit: jest.fn(),
             credit: jest.fn(),
             findBalance: jest.fn(),
+            findUserBatchForUpdate: jest.fn(),
+            resetBalances: jest.fn(),
         };
 
         refreshTokenRepository = {

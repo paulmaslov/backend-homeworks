@@ -43,4 +43,10 @@ export default () => ({
     wallet: {
         idempotencyTtlMs: ms(process.env.IDEMPOTENCY_KEY_TTL as StringValue),
     },
+    balanceReset: {
+        scheduleEnabled: process.env.BALANCE_RESET_ENABLED === "true",
+        intervalMs: ms(process.env.BALANCE_RESET_INTERVAL as StringValue),
+        batchSize: parseInt(process.env.BALANCE_RESET_BATCH_SIZE as string, 10),
+        dedupTtlMs: ms(process.env.BALANCE_RESET_DEDUP_TTL as StringValue),
+    },
 });

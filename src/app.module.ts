@@ -4,7 +4,9 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { AvatarsModule } from "@/features/avatars/avatars.module";
+import { BalanceResetModule } from "@/features/balance-reset/balance-reset.module";
 import { WalletModule } from "@/features/wallet/wallet.module";
+import { QueuesModule } from "@/providers/queues/queue.module";
 
 import { AuthModule } from "./auth/auth.module";
 import { ConfigsModule } from "./configs/config.module";
@@ -19,6 +21,8 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
         AuthModule,
         AvatarsModule,
         WalletModule,
+        QueuesModule,
+        BalanceResetModule,
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({

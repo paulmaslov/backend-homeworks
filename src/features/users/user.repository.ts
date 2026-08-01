@@ -11,6 +11,7 @@ import {
     FindUsersParams,
     IUserRepository,
     UpdateUserData,
+    UserToReset,
 } from "./user.repository.interface";
 
 @Injectable()
@@ -151,5 +152,35 @@ export class UserRepository
         });
 
         return user?.balance ?? null;
+    }
+
+    async findUserBatchForUpdate(
+        afterId: string | null,
+        limit: number,
+        transaction: Transaction,
+    ): Promise<UserToReset[]> {
+        return this.model.findAll({
+            attributes: ["id", "balance"],
+            where: {
+                balance: { [Op.gt]: 0 },
+                ...(afterId ? { id: { [Op.gt]: afterId } } : {}),
+            },
+            order: [["id", "ASC"]],
+            limit,
+            transaction,
+            lock: Transaction.LOCK.UPDATE,
+        });
+    }
+
+    async resetBalances(
+        ids: string[],
+        transaction: Transaction,
+    ): Promise<number> {
+        const [affected] = await this.model.update(
+            { balance: "0" },
+            { where: { id: { [Op.in]: ids } }, transaction },
+        );
+
+        return affected;
     }
 }

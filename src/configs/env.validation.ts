@@ -45,4 +45,14 @@ export const envValidationSchema = Joi.object({
     IDEMPOTENCY_KEY_TTL: Joi.string()
         .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
         .default("24h"),
+
+    // balance reset
+    BALANCE_RESET_ENABLED: Joi.boolean().default(true),
+    BALANCE_RESET_INTERVAL: Joi.string()
+        .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
+        .default("10m"),
+    BALANCE_RESET_BATCH_SIZE: Joi.number().min(1).default(1000),
+    BALANCE_RESET_DEDUP_TTL: Joi.string()
+        .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
+        .default("5m"),
 });

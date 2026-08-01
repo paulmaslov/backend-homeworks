@@ -1,4 +1,4 @@
-import KeyvRedis from "@keyv/redis";
+import { createKeyv } from "@keyv/redis";
 import { CacheModule } from "@nestjs/cache-manager";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
@@ -13,7 +13,11 @@ const FALLBACK_TTL_MS = 60_000;
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
-                stores: [new KeyvRedis(buildRedisUrl(config))],
+                stores: [
+                    createKeyv(buildRedisUrl(config), {
+                        namespace: "cache",
+                    }),
+                ],
                 ttl: FALLBACK_TTL_MS,
             }),
         }),

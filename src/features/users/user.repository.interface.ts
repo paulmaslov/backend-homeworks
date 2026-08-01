@@ -23,6 +23,11 @@ export interface UpdateUserData {
     readonly description?: string;
 }
 
+export interface UserToReset {
+    readonly id: string;
+    readonly balance: string;
+}
+
 export abstract class IUserRepository {
     abstract create(
         data: CreateUserData,
@@ -85,4 +90,17 @@ export abstract class IUserRepository {
 
     // чтобы в сервис кошелька не отдавать хеш пароля
     abstract findBalance(id: string): Promise<string | null>;
+
+    // возвращает пользователей батчами по limit, cursor стоит по afterId
+    abstract findUserBatchForUpdate(
+        afterId: string | null,
+        limit: number,
+        transaction: Transaction,
+    ): Promise<UserToReset[]>;
+
+    // обнуляет балансы по списку id, возвращает число затронутых строк
+    abstract resetBalances(
+        ids: string[],
+        transaction: Transaction,
+    ): Promise<number>;
 }

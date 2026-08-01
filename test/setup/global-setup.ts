@@ -9,6 +9,10 @@ import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
 import { createMigrator, createSequelize } from "@/databases/migrator";
 
 import {
+    BALANCE_RESET_BATCH_SIZE,
+    BALANCE_RESET_DEDUP_TTL,
+    BALANCE_RESET_ENABLED,
+    BALANCE_RESET_INTERVAL,
     IDEMPOTENCY_KEY_TTL,
     RATE_LIMIT_PERIOD,
     RATE_LIMIT_REQUESTS,
@@ -133,6 +137,10 @@ export default async function globalSetup(): Promise<void> {
 
     process.env.USERS_CACHE_TTL = USERS_CACHE_TTL;
     process.env.IDEMPOTENCY_KEY_TTL = IDEMPOTENCY_KEY_TTL;
+    process.env.BALANCE_RESET_ENABLED = BALANCE_RESET_ENABLED;
+    process.env.BALANCE_RESET_INTERVAL = BALANCE_RESET_INTERVAL;
+    process.env.BALANCE_RESET_BATCH_SIZE = BALANCE_RESET_BATCH_SIZE;
+    process.env.BALANCE_RESET_DEDUP_TTL = BALANCE_RESET_DEDUP_TTL;
 
     await Promise.all([startPostgres(), startMinio(), startRedis()]);
 
