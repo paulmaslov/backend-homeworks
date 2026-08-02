@@ -16,6 +16,8 @@
         "!src/**/*.module.ts",
         "!src/**/*.interface.ts",
         "!src/main.ts",
+        "!src/databases/**",
+        "!src/scripts/**",
         "!**/testing/**"
     ],
     "coverageDirectory": "<rootDir>/coverage-e2e",

@@ -123,6 +123,12 @@
         },
         "collectCoverageFrom": [
             "**/*.(t|j)s",
+            "!**/*.spec.ts",
+            "!**/*.module.ts",
+            "!**/*.interface.ts",
+            "!main.ts",
+            "!databases/**",
+            "!scripts/**",
             "!**/testing/**"
         ],
         "coverageDirectory": "../coverage",
