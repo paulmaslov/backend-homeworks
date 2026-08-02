@@ -59,7 +59,7 @@ describe("Active users (e2e)", () => {
             const response = await api(app)
                 .post(AVATARS_URL)
                 .set("Authorization", `Bearer ${accessToken}`)
-                .attach("file", buildImage(), {
+                .attach("file", await buildImage(), {
                     filename: "avatar.png",
                     contentType: "image/png",
                 })

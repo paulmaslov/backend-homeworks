@@ -4,6 +4,7 @@ import {
     ConflictException,
     Injectable,
     NotFoundException,
+    UnprocessableEntityException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectConnection } from "@nestjs/sequelize";
@@ -13,11 +14,15 @@ import { Sequelize } from "sequelize-typescript";
 
 import { IAvatarRepository } from "@/features/avatars/avatar.repository.interface";
 import {
-    AVATAR_EXTENSIONS,
+    AVATAR_OUTPUT_EXTENSION,
     AVATARS_FOLDER,
     MAX_ACTIVE_AVATARS,
 } from "@/features/avatars/avatars.constants";
 import { AvatarResponseDto } from "@/features/avatars/dto/avatar-response.dto";
+import {
+    processAvatar,
+    ProcessedAvatar,
+} from "@/features/avatars/process-avatar";
 import { UserService } from "@/features/users/user.service";
 import { IFileService } from "@/providers/files/files.adapter";
 
@@ -43,13 +48,19 @@ export class AvatarService {
         file: Express.Multer.File,
     ): Promise<AvatarResponseDto> {
         await this.checkIfLimitIsReached(userId);
+
+        // дальше везде работаем с пересобранной картинкой,
+        // а не с тем, что прислал клиент
+        const processed = await this.processImage(userId, file.buffer);
+
         // имя файла генерируем сами, чтобы не было коллизий
-        const fileName = `${randomUUID()}.${AVATAR_EXTENSIONS[file.mimetype]}`;
+        const fileName = `${randomUUID()}.${AVATAR_OUTPUT_EXTENSION}`;
 
         // загружаем файл до транзакции, чтобы не держать ее открытой долгое время
         // сирот убираем при ролбэке транзакции
         await this.fileService.uploadFile({
-            file,
+            body: processed.buffer,
+            contentType: processed.mimeType,
             folder: AVATARS_FOLDER,
             name: fileName,
         });
@@ -66,8 +77,8 @@ export class AvatarService {
                         {
                             userId,
                             fileName,
-                            mimeType: file.mimetype,
-                            size: file.size,
+                            mimeType: processed.mimeType,
+                            size: processed.size,
                         },
                         transaction,
                     );
@@ -79,8 +90,8 @@ export class AvatarService {
                     userId,
                     avatarId: avatar.id,
                     fileName,
-                    size: file.size,
-                    mimeType: file.mimetype,
+                    size: processed.size,
+                    mimeType: processed.mimeType,
                 },
                 "Avatar uploaded",
             );
@@ -137,6 +148,24 @@ export class AvatarService {
             this.logger.error(
                 { err: error, fileName, folder: AVATARS_FOLDER },
                 "Failed to remove orphaned object",
+            );
+        }
+    }
+
+    private async processImage(
+        userId: string,
+        buffer: Buffer,
+    ): Promise<ProcessedAvatar> {
+        try {
+            return await processAvatar(buffer);
+        } catch (error) {
+            this.logger.debug(
+                { err: error, userId },
+                "Avatar processing failed",
+            );
+
+            throw new UnprocessableEntityException(
+                "Image could not be processed",
             );
         }
     }

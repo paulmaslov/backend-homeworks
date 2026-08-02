@@ -28,7 +28,7 @@ export class S3Service extends IFileService {
     }
 
     async uploadFile(dto: UploadFilePayloadDto): Promise<UploadFileResultDto> {
-        const { folder, file, name } = dto;
+        const { folder, body, contentType, name } = dto;
         const path = `${folder}/${name}`;
         const startedAt = Date.now();
 
@@ -36,8 +36,8 @@ export class S3Service extends IFileService {
             {
                 bucket: this.bucketName,
                 path,
-                size: file.size,
-                mimeType: file.mimetype,
+                size: body.length,
+                contentType,
             },
             "Uploading file to bucket",
         );
@@ -49,8 +49,8 @@ export class S3Service extends IFileService {
             await this.S3.putObject({
                 Bucket: this.bucketName,
                 Key: path,
-                Body: file.buffer,
-                ContentType: file.mimetype,
+                Body: body,
+                ContentType: contentType,
             });
         } catch (error) {
             this.logger.error(

@@ -9,8 +9,14 @@ export const AVATARS_FOLDER = "profiles";
 
 export const AVATAR_FIELD_NAME = "file";
 
-// расширение файла берём из mime, а не из имени, которое прислал клиент
-export const AVATAR_EXTENSIONS: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-};
+// сторона квадрата, к которому приводим аватарку
+export const AVATAR_SIZE_PX = 512;
+
+export const AVATAR_WEBP_QUALITY = 85;
+
+// потолок по пикселям - защита от decompression бомбы
+export const AVATAR_MAX_INPUT_PIXELS = 50_000_000;
+
+export const AVATAR_OUTPUT_MIME_TYPE = "image/webp";
+
+export const AVATAR_OUTPUT_EXTENSION = "webp";

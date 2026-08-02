@@ -1,9 +1,13 @@
 import { INestApplication, Logger } from "@nestjs/common";
 import { getModelToken } from "@nestjs/sequelize";
+import sharp from "sharp";
 
 import { Avatar } from "@/features/avatars/avatar.model";
 import { IAvatarRepository } from "@/features/avatars/avatar.repository.interface";
 import {
+    AVATAR_OUTPUT_EXTENSION,
+    AVATAR_OUTPUT_MIME_TYPE,
+    AVATAR_SIZE_PX,
     AVATARS_FOLDER,
     MAX_ACTIVE_AVATARS,
     MAX_AVATAR_SIZE_BYTES,
@@ -14,7 +18,13 @@ import { UploadException } from "@/providers/files/s3/exceptions/upload.exceptio
 import { uuidFileName } from "@/providers/files/testing/file-name-pattern";
 
 import { api, API_PREFIX } from "./helpers/api";
-import { buildImage, buildNotAnImage } from "./helpers/build-image";
+import {
+    buildCorruptImage,
+    buildImage,
+    buildImageWithExif,
+    buildNotAnImage,
+    buildPixelBomb,
+} from "./helpers/build-image";
 import { cleanDatabase } from "./helpers/clean-database";
 import { createTestApp } from "./helpers/create-test-app";
 import { registerUser } from "./helpers/register-user";
@@ -28,6 +38,8 @@ import {
 const AVATARS_URL = `${API_PREFIX}/users/me/avatars`;
 // заведомо несуществующий идентификатор
 const UNKNOWN_UUID = "00000000-0000-4000-8000-000000000000";
+let pngImage: Buffer;
+let jpegImage: Buffer;
 
 describe("Avatars (e2e)", () => {
     let app: INestApplication;
@@ -39,6 +51,9 @@ describe("Avatars (e2e)", () => {
         avatarModel = app.get<typeof Avatar>(getModelToken(Avatar));
 
         await app.listen(0);
+
+        pngImage = await buildImage("image/png");
+        jpegImage = await buildImage("image/jpeg");
     });
 
     beforeEach(async () => {
@@ -56,7 +71,7 @@ describe("Avatars (e2e)", () => {
 
     const uploadAvatar = (
         accessToken: string,
-        buffer: Buffer = buildImage(),
+        buffer: Buffer = pngImage,
         options: { filename?: string; contentType?: string } = {},
     ) => {
         return api(app)
@@ -84,7 +99,7 @@ describe("Avatars (e2e)", () => {
         it("Returns 401 without access token", async () => {
             await api(app)
                 .post(AVATARS_URL)
-                .attach("file", buildImage(), {
+                .attach("file", pngImage, {
                     filename: "avatar.png",
                     contentType: "image/png",
                 })
@@ -121,7 +136,7 @@ describe("Avatars (e2e)", () => {
             await api(app)
                 .post(AVATARS_URL)
                 .set("Authorization", `Bearer ${accessToken}`)
-                .attach("avatar", buildImage(), {
+                .attach("avatar", pngImage, {
                     filename: "avatar.png",
                     contentType: "image/png",
                 })
@@ -147,7 +162,7 @@ describe("Avatars (e2e)", () => {
         it("Returns 415 when a real png is declared as a jpeg", async () => {
             const { accessToken } = await registerUser(app);
 
-            await uploadAvatar(accessToken, buildImage("image/png"), {
+            await uploadAvatar(accessToken, pngImage, {
                 filename: "avatar.jpg",
                 contentType: "image/jpeg",
             }).expect(415);
@@ -169,7 +184,7 @@ describe("Avatars (e2e)", () => {
             const { accessToken } = await registerUser(app);
 
             const tooLarge = Buffer.alloc(MAX_AVATAR_SIZE_BYTES + 1024);
-            buildImage().copy(tooLarge);
+            pngImage.copy(tooLarge);
 
             await uploadAvatar(accessToken, tooLarge).expect(413);
         });
@@ -221,6 +236,36 @@ describe("Avatars (e2e)", () => {
             expect(rows).toHaveLength(0);
             expect(keys).toHaveLength(0);
         });
+
+        it("Returns 422 when the content cannot be decoded", async () => {
+            const { accessToken } = await registerUser(app);
+
+            // сигнатура png на месте, дальше нули: пайп пропускает, sharp нет
+            await uploadAvatar(accessToken, buildCorruptImage()).expect(422);
+        });
+
+        it("Returns 422 for an image over the pixel limit", async () => {
+            const { accessToken } = await registerUser(app);
+
+            const bomb = await buildPixelBomb();
+
+            // 56 мегапикселей укладываются в лимит по байтам с огромным запасом
+            expect(bomb.length).toBeLessThan(MAX_AVATAR_SIZE_BYTES);
+
+            await uploadAvatar(accessToken, bomb).expect(422);
+        });
+
+        it("Writes nothing to the database or the bucket when processing fails", async () => {
+            const { accessToken } = await registerUser(app);
+
+            await uploadAvatar(accessToken, buildCorruptImage()).expect(422);
+
+            const rows = await avatarModel.findAll({ paranoid: false });
+            const keys = await listObjectKeys(app);
+
+            expect(rows).toHaveLength(0);
+            expect(keys).toHaveLength(0);
+        });
     });
 
     describe("POST /users/me/avatars - positive tests", () => {
@@ -244,7 +289,7 @@ describe("Avatars (e2e)", () => {
 
             const [row] = await avatarModel.findAll();
 
-            expect(row.fileName).toMatch(uuidFileName("png"));
+            expect(row.fileName).toMatch(uuidFileName(AVATAR_OUTPUT_EXTENSION));
             expect(row.fileName).not.toContain("/");
             expect(row.fileName).not.toContain("http");
         });
@@ -260,11 +305,10 @@ describe("Avatars (e2e)", () => {
             expect(keys).toEqual([`${AVATARS_FOLDER}/${row.fileName}`]);
         });
 
-        it("Stores the bytes and the content type unchanged", async () => {
+        it("Stores the processed image instead of the original bytes", async () => {
             const { accessToken } = await registerUser(app);
-            const source = buildImage("image/png", 2048);
 
-            await uploadAvatar(accessToken, source).expect(201);
+            await uploadAvatar(accessToken, pngImage).expect(201);
 
             const [row] = await avatarModel.findAll();
             const stored = await readObject(
@@ -272,27 +316,51 @@ describe("Avatars (e2e)", () => {
                 `${AVATARS_FOLDER}/${row.fileName}`,
             );
 
-            expect(stored.body).toEqual(source);
+            expect(stored.body).not.toEqual(pngImage);
             // без content type браузер отдаст картинку на скачивание без показа
-            expect(stored.contentType).toBe("image/png");
+            expect(stored.contentType).toBe(AVATAR_OUTPUT_MIME_TYPE);
+
+            const meta = await sharp(stored.body).metadata();
+
+            expect(meta.format).toBe("webp");
+        });
+
+        it("Keeps the row in sync with what actually lies in the bucket", async () => {
+            const { accessToken } = await registerUser(app);
+
+            await uploadAvatar(accessToken, pngImage).expect(201);
+
+            const [row] = await avatarModel.findAll();
+            const stored = await readObject(
+                app,
+                `${AVATARS_FOLDER}/${row.fileName}`,
+            );
+
+            expect(row.mimeType).toBe(AVATAR_OUTPUT_MIME_TYPE);
+            expect(row.size).toBe(stored.body.length);
         });
 
         it("Serves the returned url anonymously", async () => {
             const { accessToken } = await registerUser(app);
-            const source = buildImage();
 
-            const response = await uploadAvatar(accessToken, source).expect(
-                201,
-            );
+            const response = await uploadAvatar(accessToken).expect(201);
             const { url } = response.body as AvatarResponseDto;
+
+            const [row] = await avatarModel.findAll();
+            const stored = await readObject(
+                app,
+                `${AVATARS_FOLDER}/${row.fileName}`,
+            );
 
             // проверяем, что браузер сможет показать картинку
             const fetched = await fetch(url);
             const downloaded = Buffer.from(await fetched.arrayBuffer());
 
             expect(fetched.status).toBe(200);
-            expect(fetched.headers.get("content-type")).toBe("image/png");
-            expect(downloaded).toEqual(source);
+            expect(fetched.headers.get("content-type")).toBe(
+                AVATAR_OUTPUT_MIME_TYPE,
+            );
+            expect(downloaded).toEqual(stored.body);
         });
 
         // проверяем, что нельзя перебрать все объекты бакета
@@ -322,23 +390,22 @@ describe("Avatars (e2e)", () => {
         it("Ignores the client file name when naming the object", async () => {
             const { accessToken } = await registerUser(app);
 
-            await uploadAvatar(accessToken, buildImage(), {
+            await uploadAvatar(accessToken, pngImage, {
                 filename: "../../evil.php",
             }).expect(201);
 
             const [key] = await listObjectKeys(app);
 
             expect(key.startsWith(`${AVATARS_FOLDER}/`)).toBe(true);
-            expect(key.endsWith(".png")).toBe(true);
+            expect(key.endsWith(`.${AVATAR_OUTPUT_EXTENSION}`)).toBe(true);
             expect(key).not.toContain("evil");
             expect(key).not.toContain("..");
         });
 
-        it("Takes the extension from the mime type, not from the file name", async () => {
+        it("Normalizes an allowed input format to the single output format", async () => {
             const { accessToken } = await registerUser(app);
 
-            // в имени файла ошибка - в нём png, а по факту и в заголовке jpeg
-            await uploadAvatar(accessToken, buildImage("image/jpeg"), {
+            await uploadAvatar(accessToken, jpegImage, {
                 filename: "avatar.png",
                 contentType: "image/jpeg",
             }).expect(201);
@@ -349,9 +416,11 @@ describe("Avatars (e2e)", () => {
                 `${AVATARS_FOLDER}/${row.fileName}`,
             );
 
-            expect(row.mimeType).toBe("image/jpeg");
-            expect(row.fileName.endsWith(".jpg")).toBe(true);
-            expect(stored.contentType).toBe("image/jpeg");
+            expect(row.mimeType).toBe(AVATAR_OUTPUT_MIME_TYPE);
+            expect(row.fileName.endsWith(`.${AVATAR_OUTPUT_EXTENSION}`)).toBe(
+                true,
+            );
+            expect(stored.contentType).toBe(AVATAR_OUTPUT_MIME_TYPE);
         });
 
         it("Records the upload time and the owner", async () => {
@@ -407,6 +476,47 @@ describe("Avatars (e2e)", () => {
 
             // у второго пользователя свой лимит
             await uploadAvatar(second.accessToken).expect(201);
+        });
+
+        it("Resizes the stored image down to the target size", async () => {
+            const { accessToken } = await registerUser(app);
+            const large = await buildImage("image/png", 2000);
+
+            await uploadAvatar(accessToken, large).expect(201);
+
+            const [row] = await avatarModel.findAll();
+            const stored = await readObject(
+                app,
+                `${AVATARS_FOLDER}/${row.fileName}`,
+            );
+            const meta = await sharp(stored.body).metadata();
+
+            expect(meta.width).toBe(AVATAR_SIZE_PX);
+            expect(meta.height).toBe(AVATAR_SIZE_PX);
+        });
+
+        it("Does not leak the source metadata into the bucket", async () => {
+            const { accessToken } = await registerUser(app);
+            const withExif = await buildImageWithExif();
+
+            // страхуемся от того, что метаданных не было изначально
+            // и тест проходит впустую
+            expect((await sharp(withExif).metadata()).exif).toBeDefined();
+
+            await uploadAvatar(accessToken, withExif, {
+                filename: "photo.jpg",
+                contentType: "image/jpeg",
+            }).expect(201);
+
+            const [row] = await avatarModel.findAll();
+            const stored = await readObject(
+                app,
+                `${AVATARS_FOLDER}/${row.fileName}`,
+            );
+            const meta = await sharp(stored.body).metadata();
+
+            expect(meta.exif).toBeUndefined();
+            expect(meta.hasProfile).toBe(false);
         });
     });
 
