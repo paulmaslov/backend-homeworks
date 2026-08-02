@@ -55,7 +55,6 @@ services:
       timeout: 3s
       retries: 5
 
-# TODO: поресерчить как лучше указывать политику доступов
 configs:
   avatars_policy:
     content: |

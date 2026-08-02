@@ -6,7 +6,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 // если забыли передать в set() ttl
 const FALLBACK_TTL_MS = 60_000;
 
-// TODO: поресерчить над тем, как делать модуль и подключать редис
 @Module({
     imports: [
         CacheModule.registerAsync({
