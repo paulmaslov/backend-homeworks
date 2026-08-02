@@ -6,6 +6,7 @@ import {
     UnauthorizedException,
 } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/sequelize";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
@@ -36,12 +37,19 @@ export class WalletService {
         private readonly transferRepository: ITransferRepository,
         private readonly idempotencyRepository: IIdempotencyRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
+
+        @InjectPinoLogger(WalletService.name)
+        private readonly logger: PinoLogger,
     ) {}
 
     async getBalance(userId: string): Promise<BalanceResponseDto> {
         const balance = await this.userRepository.findBalance(userId);
 
         if (balance === null) {
+            this.logger.warn(
+                { userId },
+                "Balance requested for a deleted account",
+            );
             throw new UnauthorizedException({
                 code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
                 message: "Account has been deleted",
@@ -89,6 +97,10 @@ export class WalletService {
 
                     // если пытаемся пополнить кошелек удаленного аккаунта
                     if (!credited) {
+                        this.logger.warn(
+                            { userId, amount: dto.amount },
+                            "Deposit to a deleted account",
+                        );
                         throw new UnauthorizedException({
                             code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
                             message: "Account has been deleted",
@@ -112,6 +124,11 @@ export class WalletService {
 
                     return created;
                 },
+            );
+
+            this.logger.info(
+                { userId, transferId: transfer.id, amount: transfer.amount },
+                "Deposit completed",
             );
 
             return {
@@ -138,6 +155,7 @@ export class WalletService {
         idempotencyKey: string,
     ): Promise<WalletOperationResult> {
         if (fromUserId === dto.toUserId) {
+            this.logger.debug({ fromUserId }, "Self transfer rejected");
             throw new BadRequestException({
                 code: WALLET_ERROR_CODES.SELF_TRANSFER_FORBIDDEN,
                 message: "Cannot transfer to yourself",
@@ -181,6 +199,10 @@ export class WalletService {
                     );
 
                     if (!debited) {
+                        this.logger.warn(
+                            { fromUserId, amount: dto.amount },
+                            "Insufficient funds",
+                        );
                         throw new ConflictException({
                             code: WALLET_ERROR_CODES.INSUFFICIENT_FUNDS,
                             message: "Insufficient funds",
@@ -197,6 +219,14 @@ export class WalletService {
                     // эта гарантия в другом методе и если при рефакторинге ее
                     // уберут, деньги могут списаться и не дойти
                     if (!credited) {
+                        this.logger.error(
+                            {
+                                fromUserId,
+                                toUserId: dto.toUserId,
+                                amount: dto.amount,
+                            },
+                            "Credit affected 0 rows for a locked recipient",
+                        );
                         // если мы попали в эту ветку, то порядок блокировок
                         // сломан, поэтому мы обязаны залогировать эту
                         // ошибку в all-exception фильтру
@@ -222,6 +252,16 @@ export class WalletService {
 
                     return created;
                 },
+            );
+
+            this.logger.info(
+                {
+                    fromUserId,
+                    toUserId: transfer.toUserId,
+                    transferId: transfer.id,
+                    amount: transfer.amount,
+                },
+                "Transfer completed",
             );
 
             return {
@@ -263,15 +303,22 @@ export class WalletService {
             // живой токен на удаленный аккаунт, получателя просто нет.
             // поэтому не используем готовый lockByIdOrFail - он всегда дает 404
             if (!user) {
-                throw id === fromUserId
-                    ? new UnauthorizedException({
-                          code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
-                          message: "Account has been deleted",
-                      })
-                    : new NotFoundException({
-                          code: WALLET_ERROR_CODES.RECIPIENT_NOT_FOUND,
-                          message: "Recipient not found",
-                      });
+                if (id === fromUserId) {
+                    this.logger.warn(
+                        { fromUserId },
+                        "Transfer from a deleted account",
+                    );
+                    throw new UnauthorizedException({
+                        code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
+                        message: "Account has been deleted",
+                    });
+                }
+
+                this.logger.debug({ toUserId }, "Recipient not found");
+                throw new NotFoundException({
+                    code: WALLET_ERROR_CODES.RECIPIENT_NOT_FOUND,
+                    message: "Recipient not found",
+                });
             }
         }
     }
@@ -294,6 +341,10 @@ export class WalletService {
         // тот же ключ с другими параметрами - не повтор, а ошибка клиента:
         // иначе он получил бы в ответ чужую операцию и решил, что его прошла
         if (!record || record.requestHash !== requestHash) {
+            this.logger.warn(
+                { userId, endpoint, idempotencyKey },
+                "Idempotency key reused with different parameters",
+            );
             throw new ConflictException({
                 code: WALLET_ERROR_CODES.IDEMPOTENCY_KEY_REUSED,
                 message: "Idempotency key was used with different parameters",
@@ -310,10 +361,19 @@ export class WalletService {
         // сюда можно попасть только если кто-то изменил код и сломал это поведение
         // поэтому бросаем просто ошибку, чтобы она попала в all exception фильтр и в логи
         if (!transfer) {
+            this.logger.error(
+                { userId, endpoint, idempotencyKeyId: record.id },
+                "Idempotency key committed without a transfer",
+            );
             throw new Error(
                 `idempotency key ${record.id} is committed without a transfer`,
             );
         }
+
+        this.logger.info(
+            { userId, endpoint, idempotencyKey, transferId: transfer.id },
+            "Idempotent replay",
+        );
 
         return {
             transfer: new TransferResponseDto(transfer),

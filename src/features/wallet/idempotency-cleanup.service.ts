@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import { IIdempotencyRepository } from "@/features/wallet/idempotency.repository.interface";
 
@@ -9,11 +10,12 @@ const BATCH_SIZE = 1000;
 
 @Injectable()
 export class IdempotencyCleanupService {
-    private readonly logger = new Logger(IdempotencyCleanupService.name);
-
     constructor(
         private readonly idempotencyRepository: IIdempotencyRepository,
         private readonly config: ConfigService,
+
+        @InjectPinoLogger(IdempotencyCleanupService.name)
+        private readonly logger: PinoLogger,
     ) {}
 
     async run(): Promise<number> {
@@ -32,10 +34,16 @@ export class IdempotencyCleanupService {
                 BATCH_SIZE,
             );
             total += deleted;
+
+            this.logger.debug(
+                { deleted, total },
+                "Idempotency keys batch removed",
+            );
         } while (deleted === BATCH_SIZE);
 
-        this.logger.log(
-            `Removed ${total} idempotency keys older than ${cutoff.toISOString()}`,
+        this.logger.info(
+            { removed: total, cutoff: cutoff.toISOString() },
+            "Idempotency cleanup finished",
         );
 
         return total;

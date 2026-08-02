@@ -1,6 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { Job, Queue } from "bullmq";
 
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import {
     BALANCE_RESET_DEDUP_ID,
     BALANCE_RESET_JOBS,
@@ -16,9 +17,6 @@ describe("BalanceResetService", () => {
     let queue: jest.Mocked<Queue<BalanceResetJobData>>;
 
     beforeEach(() => {
-        // чтобы не засорять вывод в тестах
-        jest.spyOn(console, "log").mockImplementation(() => {});
-
         queue = {
             add: jest.fn(),
             getJob: jest.fn(),
@@ -29,7 +27,7 @@ describe("BalanceResetService", () => {
             getOrThrow: jest.fn(() => DEDUP_TTL_MS),
         } as unknown as ConfigService;
 
-        service = new BalanceResetService(queue, config);
+        service = new BalanceResetService(queue, config, createLoggerMock());
 
         queue.add.mockResolvedValue({ id: JOB_ID } as Job<BalanceResetJobData>);
 

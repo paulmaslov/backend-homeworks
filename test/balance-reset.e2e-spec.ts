@@ -65,8 +65,6 @@ describe("Balance reset (e2e)", () => {
     });
 
     beforeEach(async () => {
-        jest.spyOn(console, "log").mockImplementation(() => {});
-
         await queue.obliterate({ force: true });
         await queue.removeDeduplicationKey(BALANCE_RESET_DEDUP_ID);
         await cleanDatabase(app);

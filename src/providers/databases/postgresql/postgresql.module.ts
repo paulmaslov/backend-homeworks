@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { SequelizeModule } from "@nestjs/sequelize";
 
@@ -13,9 +13,16 @@ import {
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: (config: ConfigService) => {
+                const database = config.getOrThrow<DatabaseConfig>("database");
+                const logger = new Logger("Sequelize");
+
                 return {
                     ...buildSequelizeOptions(
-                        config.getOrThrow<DatabaseConfig>("database"),
+                        database,
+                        database.logging
+                            ? (sql, durationMs) =>
+                                  logger.debug({ sql, durationMs }, "query")
+                            : undefined,
                     ),
                     autoLoadModels: true,
                     synchronize: false,

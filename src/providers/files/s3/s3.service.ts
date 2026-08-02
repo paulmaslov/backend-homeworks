@@ -1,6 +1,7 @@
 import * as AWS from "@aws-sdk/client-s3";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import { IFileService } from "@/providers/files/files.adapter";
 
@@ -13,12 +14,14 @@ import { UploadException } from "./exceptions/upload.exception";
 
 @Injectable()
 export class S3Service extends IFileService {
-    private readonly logger = new Logger(S3Service.name);
     private readonly bucketName: string;
 
     constructor(
         @Inject(S3Lib) private readonly S3: AWS.S3,
         config: ConfigService,
+
+        @InjectPinoLogger(S3Service.name)
+        private readonly logger: PinoLogger,
     ) {
         super();
         this.bucketName = config.getOrThrow<string>("s3.bucket");
@@ -27,8 +30,17 @@ export class S3Service extends IFileService {
     async uploadFile(dto: UploadFilePayloadDto): Promise<UploadFileResultDto> {
         const { folder, file, name } = dto;
         const path = `${folder}/${name}`;
+        const startedAt = Date.now();
 
-        this.logger.log("📁 Beginning of uploading file to bucket");
+        this.logger.debug(
+            {
+                bucket: this.bucketName,
+                path,
+                size: file.size,
+                mimeType: file.mimetype,
+            },
+            "Uploading file to bucket",
+        );
 
         try {
             // убрал отсюда public read, потому что это дженерик сервис,
@@ -42,20 +54,39 @@ export class S3Service extends IFileService {
             });
         } catch (error) {
             this.logger.error(
-                `❌ File upload error with path: ${path}`,
-                error instanceof Error ? error.stack : String(error),
+                {
+                    err: error,
+                    bucket: this.bucketName,
+                    path,
+                    durationMs: Date.now() - startedAt,
+                },
+                "File upload failed",
             );
             throw new UploadException(
                 error instanceof Error ? error.message : JSON.stringify(error),
             );
         }
+
+        this.logger.debug(
+            {
+                bucket: this.bucketName,
+                path,
+                durationMs: Date.now() - startedAt,
+            },
+            "File uploaded",
+        );
+
         return { path };
     }
 
     async removeFile(dto: RemoveFilePayloadDto): Promise<void> {
         const { path } = dto;
+        const startedAt = Date.now();
 
-        this.logger.log("🗑️ Beginning of removing file from bucket");
+        this.logger.debug(
+            { bucket: this.bucketName, path },
+            "Removing file from bucket",
+        );
 
         try {
             await this.S3.deleteObject({
@@ -64,12 +95,26 @@ export class S3Service extends IFileService {
             });
         } catch (error) {
             this.logger.error(
-                `❌ File remove error with path: ${path}`,
-                error instanceof Error ? error.stack : String(error),
+                {
+                    err: error,
+                    bucket: this.bucketName,
+                    path,
+                    durationMs: Date.now() - startedAt,
+                },
+                "File remove failed",
             );
             throw new RemoveException(
                 error instanceof Error ? error.message : JSON.stringify(error),
             );
         }
+
+        this.logger.debug(
+            {
+                bucket: this.bucketName,
+                path,
+                durationMs: Date.now() - startedAt,
+            },
+            "File removed",
+        );
     }
 }

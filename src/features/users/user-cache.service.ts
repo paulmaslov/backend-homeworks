@@ -2,6 +2,7 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cache } from "cache-manager";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 
@@ -14,12 +15,15 @@ import {
 
 // слой общения с редисом
 @Injectable()
-export class UserCache {
+export class UserCacheService {
     private readonly ttlMs: number;
 
     constructor(
         @Inject(CACHE_MANAGER) private readonly cache: Cache,
         config: ConfigService,
+
+        @InjectPinoLogger(UserCacheService.name)
+        private readonly logger: PinoLogger,
     ) {
         this.ttlMs = config.getOrThrow<number>("cache.userTtlMs");
     }
@@ -45,7 +49,10 @@ export class UserCache {
         try {
             await this.cache.del(key);
         } catch (error) {
-            console.warn(`Failed to invalidate cache key ${key}`, error);
+            this.logger.warn(
+                { err: error, key },
+                "Failed to invalidate cache key",
+            );
         }
     }
 
@@ -63,8 +70,11 @@ export class UserCache {
     private async wrap<T>(key: string, load: () => Promise<T>): Promise<T> {
         const cached = await this.cache.get<T>(key);
         if (cached !== undefined) {
+            this.logger.debug({ key }, "Cache hit");
             return cached;
         }
+
+        this.logger.debug({ key }, "Cache miss");
 
         const value = await load();
         await this.set(key, value, this.ttlMs);
@@ -88,6 +98,11 @@ export class UserCache {
             USERS_LIST_VERSION_TTL_MS,
         );
 
+        this.logger.debug(
+            { version: initial },
+            "Users list cache version initialized",
+        );
+
         return initial;
     }
 
@@ -95,7 +110,7 @@ export class UserCache {
         try {
             await this.cache.set(key, value, ttl);
         } catch (error) {
-            console.warn(`Failed to write cache key ${key}`, error);
+            this.logger.warn({ err: error, key }, "Failed to write cache key");
         }
     }
 }

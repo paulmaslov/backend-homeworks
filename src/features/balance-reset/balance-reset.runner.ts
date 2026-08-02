@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectConnection } from "@nestjs/sequelize";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Sequelize } from "sequelize-typescript";
 
 import { IBalanceResetRepository } from "@/features/balance-reset/balance-reset.repository.interface";
@@ -17,6 +18,9 @@ export class BalanceResetRunner {
         private readonly balanceResetRepository: IBalanceResetRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
         config: ConfigService,
+
+        @InjectPinoLogger(BalanceResetRunner.name)
+        private readonly logger: PinoLogger,
     ) {
         this.batchSize = config.getOrThrow<number>("balanceReset.batchSize");
     }
@@ -24,6 +28,8 @@ export class BalanceResetRunner {
     async run(runId: string, attempt: number): Promise<void> {
         const run = await this.balanceResetRepository.startRun(runId, attempt);
         const startedAt = Date.now();
+
+        this.logger.info({ runId, attempt }, "Balance reset started");
 
         let afterId: string | null = null;
         let processed = 0;
@@ -70,6 +76,11 @@ export class BalanceResetRunner {
                     // курсор это последняя строка батча
                     afterId = batch[fetched - 1].id;
                     processed += fetched;
+
+                    this.logger.debug(
+                        { runId, batchSize: fetched, processed },
+                        "Batch processed",
+                    );
                 }
 
                 // неполный батч означает, что за курсором строк не осталось
@@ -81,15 +92,22 @@ export class BalanceResetRunner {
                     processed,
                 );
 
-            console.log(
-                `[balance-reset] completed: runId=${runId}, users=${processed}, total=${totalWrittenOff}, took=${Date.now() - startedAt}ms`,
+            this.logger.info(
+                {
+                    runId,
+                    processedUsers: processed,
+                    totalWrittenOff,
+                    durationMs: Date.now() - startedAt,
+                },
+                "Balance reset completed",
             );
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : JSON.stringify(error);
 
-            console.log(
-                `[balance-reset] failed: runId=${runId}, users=${processed}, error=${message}`,
+            this.logger.error(
+                { err: error, runId, processed },
+                "Balance reset failed",
             );
 
             // если недоступна сама бд, запись статуса упадет тоже
@@ -101,9 +119,9 @@ export class BalanceResetRunner {
                     message,
                 );
             } catch (failure) {
-                console.log(
-                    `[balance-reset] failed to mark run ${run.id} as failed`,
-                    failure,
+                this.logger.error(
+                    { err: failure, runId, runRowId: run.id },
+                    "Failed to mark run as failed",
                 );
             }
 

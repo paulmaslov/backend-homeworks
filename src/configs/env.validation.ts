@@ -55,4 +55,10 @@ export const envValidationSchema = Joi.object({
     BALANCE_RESET_DEDUP_TTL: Joi.string()
         .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
         .default("5m"),
+
+    // logging
+    LOG_LEVEL: Joi.string()
+        .valid("trace", "debug", "info", "warn", "error", "fatal", "silent")
+        .default("info"),
+    LOG_PRETTY: Joi.boolean().default(false),
 });

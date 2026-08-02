@@ -1,30 +1,37 @@
 import { ConfigService } from "@nestjs/config";
 import { Cache } from "cache-manager";
 
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 
 import {
     USERS_LIST_VERSION_KEY,
     USERS_LIST_VERSION_TTL_MS,
 } from "./user-cache.keys";
-import { UserCache } from "./user-cache.service";
+import { UserCacheService } from "./user-cache.service";
 
 const TTL_MS = 30_000;
 
 const query: ListUsersQueryDto = { page: 1, limit: 20 };
 
-describe("UserCache", () => {
+describe("UserCacheService", () => {
     let cache: { get: jest.Mock; set: jest.Mock; del: jest.Mock };
-    let userCache: UserCache;
+    let logger: ReturnType<typeof createLoggerMock>;
+    let userCache: UserCacheService;
 
     beforeEach(() => {
         cache = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
+        logger = createLoggerMock();
 
         const config = {
             getOrThrow: jest.fn(() => TTL_MS),
         } as unknown as ConfigService;
 
-        userCache = new UserCache(cache as unknown as Cache, config);
+        userCache = new UserCacheService(
+            cache as unknown as Cache,
+            config,
+            logger,
+        );
     });
 
     describe("wrapProfile", () => {
@@ -100,18 +107,6 @@ describe("UserCache", () => {
     });
 
     describe("when redis is unavailable", () => {
-        let warn: jest.SpyInstance;
-
-        beforeEach(() => {
-            // мы специально делаем сервис кеша недоступным,
-            // поэтому скрываем лог ошибки из вывода, чтобы не засорять его
-            warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-        });
-
-        afterEach(() => {
-            jest.restoreAllMocks();
-        });
-
         it("Still returns the data loaded from the source", async () => {
             cache.get.mockResolvedValue(undefined);
             cache.set.mockRejectedValue(new Error("connection refused"));
@@ -120,7 +115,7 @@ describe("UserCache", () => {
             await expect(
                 userCache.wrapProfile("user-1", load),
             ).resolves.toEqual({ id: "user-1" });
-            expect(warn).toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalled();
         });
 
         it("Does not break invalidation", async () => {
@@ -129,7 +124,7 @@ describe("UserCache", () => {
             await expect(
                 userCache.invalidateProfile("user-1"),
             ).resolves.toBeUndefined();
-            expect(warn).toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalled();
         });
     });
 });

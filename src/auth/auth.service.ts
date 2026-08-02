@@ -6,6 +6,7 @@ import * as argon2 from "argon2";
 import * as crypto from "crypto";
 import type { StringValue } from "ms";
 import ms from "ms";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
@@ -27,12 +28,20 @@ export class AuthService {
         private readonly config: ConfigService,
 
         @InjectConnection() private readonly sequelize: Sequelize,
+
+        @InjectPinoLogger(AuthService.name)
+        private readonly logger: PinoLogger,
     ) {}
 
     // нам нужно создать юзера и рефреш токен атомарно
     async register(dto: CreateUserDto): Promise<AuthTokensResponseDto> {
         return this.sequelize.transaction(async (transaction) => {
             const user = await this.userService.create(dto, transaction);
+
+            transaction.afterCommit(() => {
+                this.logger.info({ userId: user.id }, "User registered");
+            });
+
             return this.issueTokenPair(user, transaction);
         });
     }
@@ -40,6 +49,10 @@ export class AuthService {
     async login(dto: LoginDto): Promise<AuthTokensResponseDto> {
         const user = await this.userService.findByLogin(dto.login);
         if (!user) {
+            this.logger.warn(
+                { login: dto.login },
+                "Login failed: user not found",
+            );
             throw new UnauthorizedException("Invalid login or password");
         }
 
@@ -48,10 +61,18 @@ export class AuthService {
             dto.password,
         );
         if (!isPasswordValid) {
+            this.logger.warn(
+                { userId: user.id },
+                "Login failed: invalid password",
+            );
             throw new UnauthorizedException("Invalid login or password");
         }
 
-        return this.issueTokenPair(user);
+        const tokens = await this.issueTokenPair(user);
+
+        this.logger.info({ userId: user.id }, "User logged in");
+
+        return tokens;
     }
 
     // Удаление старого токено и создание нового должны быть атомарны - делаем это в транзакции
@@ -66,6 +87,7 @@ export class AuthService {
                 );
 
             if (!storedRefreshToken) {
+                this.logger.warn("Refresh failed: token not found");
                 throw new UnauthorizedException("Invalid refresh token");
             }
 
@@ -74,6 +96,15 @@ export class AuthService {
                     tokenHash,
                     transaction,
                 );
+
+                this.logger.warn(
+                    {
+                        userId: storedRefreshToken.userId,
+                        expiresAt: storedRefreshToken.expiresAt.toISOString(),
+                    },
+                    "Refresh token expired",
+                );
+
                 throw new UnauthorizedException("Refresh token expired");
             }
 
@@ -86,13 +117,20 @@ export class AuthService {
                 transaction,
             );
 
+            transaction.afterCommit(() => {
+                this.logger.info({ userId: user.id }, "Tokens rotated");
+            });
+
             return this.issueTokenPair(user, transaction);
         });
     }
 
     async logout(rawRefreshToken: string): Promise<void> {
         const tokenHash = this.hashRefreshToken(rawRefreshToken);
-        await this.refreshTokenRepository.deleteByTokenHash(tokenHash);
+        const deleted =
+            await this.refreshTokenRepository.deleteByTokenHash(tokenHash);
+
+        this.logger.info({ revoked: deleted > 0 }, "Logout");
     }
 
     private signAccessToken(user: User): string {

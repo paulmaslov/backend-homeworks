@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { Avatar } from "@/features/avatars/avatar.model";
 import { IAvatarRepository } from "@/features/avatars/avatar.repository.interface";
 import { AvatarService } from "@/features/avatars/avatar.service";
@@ -76,6 +77,7 @@ describe("AvatarService", () => {
             fileService,
             sequelize,
             config,
+            createLoggerMock(),
         );
 
         userService.lockByIdOrFail.mockResolvedValue({ id: USER_ID } as User);

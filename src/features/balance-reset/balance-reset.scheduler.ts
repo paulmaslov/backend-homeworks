@@ -2,6 +2,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Queue } from "bullmq";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import {
     BALANCE_RESET_JOBS,
@@ -19,6 +20,9 @@ export class BalanceResetScheduler implements OnApplicationBootstrap {
         @InjectQueue(BALANCE_RESET_QUEUE)
         private readonly queue: Queue<BalanceResetJobData>,
         config: ConfigService,
+
+        @InjectPinoLogger(BalanceResetScheduler.name)
+        private readonly logger: PinoLogger,
     ) {
         this.scheduleEnabled = config.getOrThrow<boolean>(
             "balanceReset.scheduleEnabled",
@@ -29,6 +33,9 @@ export class BalanceResetScheduler implements OnApplicationBootstrap {
     async onApplicationBootstrap(): Promise<void> {
         if (!this.scheduleEnabled) {
             await this.queue.removeJobScheduler(BALANCE_RESET_SCHEDULER_ID);
+            this.logger.warn(
+                "Balance reset scheduler is disabled, job scheduler removed",
+            );
             return;
         }
 
@@ -44,6 +51,11 @@ export class BalanceResetScheduler implements OnApplicationBootstrap {
                     removeOnFail: { count: 150 },
                 },
             },
+        );
+
+        this.logger.info(
+            { intervalMs: this.intervalMs },
+            "Balance reset scheduler enabled",
         );
     }
 }

@@ -4,6 +4,7 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Queue } from "bullmq";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import {
     BALANCE_RESET_DEDUP_ID,
@@ -21,6 +22,9 @@ export class BalanceResetService {
         @InjectQueue(BALANCE_RESET_QUEUE)
         private readonly queue: Queue<BalanceResetJobData>,
         config: ConfigService,
+
+        @InjectPinoLogger(BalanceResetService.name)
+        private readonly logger: PinoLogger,
     ) {
         this.dedupTtlMs = config.getOrThrow<number>("balanceReset.dedupTtlMs");
     }
@@ -59,15 +63,17 @@ export class BalanceResetService {
         if (!stored || stored.data.runId !== runId) {
             const keptRunId = stored?.data.runId ?? null;
 
-            console.log(
-                `[balance-reset] deduplicated: kept runId=${keptRunId ?? "unknown"}, dropped runId=${runId}`,
+            this.logger.warn(
+                { keptRunId, droppedRunId: runId, jobId: job.id },
+                "Balance reset run deduplicated",
             );
 
             return new BalanceResetResponseDto(keptRunId, job.id, true);
         }
 
-        console.log(
-            `[balance-reset] enqueued: runId=${runId}, jobId=${job.id}`,
+        this.logger.info(
+            { runId, jobId: job.id },
+            "Balance reset run enqueued",
         );
 
         return new BalanceResetResponseDto(runId, job.id, false);

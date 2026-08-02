@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectConnection } from "@nestjs/sequelize";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
@@ -30,6 +31,9 @@ export class AvatarService {
         private readonly fileService: IFileService,
         @InjectConnection() private readonly sequelize: Sequelize,
         config: ConfigService,
+
+        @InjectPinoLogger(AvatarService.name)
+        private readonly logger: PinoLogger,
     ) {
         this.publicUrl = config.getOrThrow<string>("s3.publicUrl");
     }
@@ -70,8 +74,24 @@ export class AvatarService {
                 },
             );
 
+            this.logger.info(
+                {
+                    userId,
+                    avatarId: avatar.id,
+                    fileName,
+                    size: file.size,
+                    mimeType: file.mimetype,
+                },
+                "Avatar uploaded",
+            );
+
             return new AvatarResponseDto(avatar, this.publicUrl);
         } catch (error) {
+            this.logger.warn(
+                { userId, fileName },
+                "Avatar transaction failed, removing uploaded object",
+            );
+
             await this.removeOrphan(fileName);
             throw error;
         }
@@ -87,6 +107,8 @@ export class AvatarService {
         if (affected === 0) {
             throw new NotFoundException(`Avatar with id ${avatarId} not found`);
         }
+
+        this.logger.info({ userId, avatarId }, "Avatar removed");
     }
 
     private async checkIfLimitIsReached(
@@ -99,6 +121,7 @@ export class AvatarService {
         );
 
         if (activeCount >= MAX_ACTIVE_AVATARS) {
+            this.logger.debug({ userId, activeCount }, "Avatar limit reached");
             throw new ConflictException(
                 `Active avatars limit is ${MAX_ACTIVE_AVATARS}, delete one before uploading a new avatar`,
             );
@@ -111,10 +134,9 @@ export class AvatarService {
                 path: `${AVATARS_FOLDER}/${fileName}`,
             });
         } catch (error) {
-            // TODO: замени на логгер, когда будешь делать логирование
-            console.error(
-                `Failed to remove orphaned object ${fileName}`,
-                error instanceof Error ? error.stack : String(error),
+            this.logger.error(
+                { err: error, fileName, folder: AVATARS_FOLDER },
+                "Failed to remove orphaned object",
             );
         }
     }

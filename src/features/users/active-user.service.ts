@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { DatabaseError } from "sequelize";
 
 import {
@@ -14,7 +15,8 @@ import {
     ActiveUserResponseDto,
     ActiveUsersPageResponseDto,
 } from "@/features/users/dto/active-user-response.dto";
-import { ListActiveUsersQueryDto } from "@/features/users/dto/list-active-users.dto"; // код postgres, который приходит, когда сработал statement_timeout
+import { ListActiveUsersQueryDto } from "@/features/users/dto/list-active-users.dto";
+import { ACTIVE_USERS_QUERY_TIMEOUT_MS } from "@/features/users/user.constants";
 
 // код postgres, который приходит, когда сработал statement_timeout
 const QUERY_CANCELED = "57014";
@@ -35,6 +37,9 @@ export class ActiveUserService {
     constructor(
         private readonly activeUserQueries: IActiveUserQueries,
         config: ConfigService,
+
+        @InjectPinoLogger(ActiveUserService.name)
+        private readonly logger: PinoLogger,
     ) {
         this.publicUrl = config.getOrThrow<string>("s3.publicUrl");
     }
@@ -51,6 +56,10 @@ export class ActiveUserService {
             cursor &&
             (cursor.ageFrom !== query.ageFrom || cursor.ageTo !== query.ageTo)
         ) {
+            this.logger.debug(
+                { ageFrom: query.ageFrom, ageTo: query.ageTo },
+                "Cursor does not match the requested age range",
+            );
             throw new BadRequestException(
                 "Cursor does not match the requested age range",
             );
@@ -67,6 +76,15 @@ export class ActiveUserService {
         } catch (error) {
             // TODO: посмотреть, какую ошибку отправлять
             if (isStatementTimeout(error)) {
+                this.logger.warn(
+                    {
+                        ageFrom: query.ageFrom,
+                        ageTo: query.ageTo,
+                        limit: query.limit,
+                        timeoutMs: ACTIVE_USERS_QUERY_TIMEOUT_MS,
+                    },
+                    "Active users query timed out",
+                );
                 throw new BadRequestException(
                     "Query took too long, narrow the age range and retry",
                 );

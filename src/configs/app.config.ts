@@ -49,4 +49,8 @@ export default () => ({
         batchSize: parseInt(process.env.BALANCE_RESET_BATCH_SIZE as string, 10),
         dedupTtlMs: ms(process.env.BALANCE_RESET_DEDUP_TTL as StringValue),
     },
+    logging: {
+        level: process.env.LOG_LEVEL as string,
+        pretty: process.env.LOG_PRETTY === "true",
+    },
 });

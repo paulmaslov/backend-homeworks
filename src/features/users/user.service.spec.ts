@@ -4,8 +4,9 @@ import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
 import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
-import { UserCache } from "@/features/users/user-cache.service";
+import { UserCacheService } from "@/features/users/user-cache.service";
 
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
@@ -29,7 +30,7 @@ describe("UserService", () => {
     let service: UserService;
     let userRepository: jest.Mocked<IUserRepository>;
     let refreshTokenRepository: jest.Mocked<IRefreshTokenRepository>;
-    let userCache: jest.Mocked<UserCache>;
+    let userCache: jest.Mocked<UserCacheService>;
 
     beforeEach(() => {
         userRepository = {
@@ -72,13 +73,14 @@ describe("UserService", () => {
             ),
             invalidateProfile: jest.fn(),
             invalidateList: jest.fn(),
-        } as unknown as jest.Mocked<UserCache>;
+        } as unknown as jest.Mocked<UserCacheService>;
 
         service = new UserService(
             userRepository,
             refreshTokenRepository,
             sequelize,
             userCache,
+            createLoggerMock(),
         );
 
         jest.mocked(argon2.hash).mockResolvedValue("hashed-password");

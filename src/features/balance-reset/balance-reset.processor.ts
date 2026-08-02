@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import {
     BALANCE_RESET_JOBS,
@@ -14,11 +15,19 @@ export class BalanceResetProcessor extends WorkerHost {
     constructor(
         private readonly service: BalanceResetService,
         private readonly runner: BalanceResetRunner,
+
+        @InjectPinoLogger(BalanceResetProcessor.name)
+        private readonly logger: PinoLogger,
     ) {
         super();
     }
 
     async process(job: Job<BalanceResetJobData>): Promise<void> {
+        this.logger.debug(
+            { jobId: job.id, jobName: job.name, attempt: job.attemptsMade + 1 },
+            "Processing job",
+        );
+
         switch (job.name) {
             case BALANCE_RESET_JOBS.TICK:
                 await this.service.enqueue();
@@ -30,15 +39,19 @@ export class BalanceResetProcessor extends WorkerHost {
                 try {
                     await job.removeDeduplicationKey();
                 } catch (error) {
-                    console.log(
-                        `[balance-reset] failed to remove deduplication key`,
-                        error,
+                    this.logger.warn(
+                        { err: error, jobId: job.id, runId: job.data.runId },
+                        "Failed to remove deduplication key",
                     );
                 }
 
                 return;
 
             default:
+                this.logger.error(
+                    { jobId: job.id, jobName: job.name },
+                    "Unknown job name",
+                );
                 throw new Error(
                     `[balance-reset] unknown job name: ${job.name}`,
                 );

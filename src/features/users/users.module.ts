@@ -5,7 +5,7 @@ import { RefreshTokenModule } from "@/auth/refresh-token.module";
 import { ActiveUserQueries } from "@/features/users/active-user.queries";
 import { IActiveUserQueries } from "@/features/users/active-user.queries.interface";
 import { ActiveUserService } from "@/features/users/active-user.service";
-import { UserCache } from "@/features/users/user-cache.service";
+import { UserCacheService } from "@/features/users/user-cache.service";
 import { UsersController } from "@/features/users/users.controller";
 import { RedisCacheModule } from "@/providers/cache/redis-cache.module";
 
@@ -26,7 +26,7 @@ import { UserService } from "./user.service";
         { provide: IActiveUserQueries, useClass: ActiveUserQueries },
         UserService,
         ActiveUserService,
-        UserCache,
+        UserCacheService,
     ],
     exports: [IUserRepository, UserService],
 })

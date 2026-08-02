@@ -142,6 +142,9 @@ export default async function globalSetup(): Promise<void> {
     process.env.BALANCE_RESET_BATCH_SIZE = BALANCE_RESET_BATCH_SIZE;
     process.env.BALANCE_RESET_DEDUP_TTL = BALANCE_RESET_DEDUP_TTL;
 
+    process.env.LOG_LEVEL = "silent";
+    process.env.LOG_PRETTY = "false";
+
     await Promise.all([startPostgres(), startMinio(), startRedis()]);
 
     const sequelize = createSequelize();

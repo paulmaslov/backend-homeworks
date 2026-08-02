@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { IBalanceResetRepository } from "@/features/balance-reset/balance-reset.repository.interface";
 import { BalanceResetRunner } from "@/features/balance-reset/balance-reset.runner";
 import { BalanceResetRun } from "@/features/balance-reset/balance-reset-run.model";
@@ -19,10 +20,6 @@ describe("BalanceResetRunner", () => {
     const run = { id: "run-1" } as BalanceResetRun;
 
     beforeEach(() => {
-        // раннер логирует итог прогона, скрываем из вывода в тестах,
-        // это лишняя инфа
-        jest.spyOn(console, "log").mockImplementation(() => {});
-
         userRepository = {
             findUserBatchForUpdate: jest.fn(),
             resetBalances: jest.fn(),
@@ -51,6 +48,7 @@ describe("BalanceResetRunner", () => {
             balanceResetRepository,
             sequelize,
             config,
+            createLoggerMock(),
         );
     });
 

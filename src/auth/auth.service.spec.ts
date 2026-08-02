@@ -7,6 +7,7 @@ import * as argon2 from "argon2";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { User } from "@/features/users/user.model";
 import { UserService } from "@/features/users/user.service";
 
@@ -62,8 +63,22 @@ describe("AuthService", () => {
         } as unknown as ConfigService;
 
         const sequelize = {
-            transaction: jest.fn((cb: (t: Transaction) => Promise<unknown>) =>
-                cb({} as Transaction),
+            transaction: jest.fn(
+                async (cb: (t: Transaction) => Promise<unknown>) => {
+                    const commitHooks: Array<() => void> = [];
+
+                    const result = await cb({
+                        afterCommit: (hook: () => void) => {
+                            commitHooks.push(hook);
+                        },
+                    } as unknown as Transaction);
+
+                    // имитируем успешный коммит - хуки выполняются после колбэка,
+                    // а не в момент регистрации
+                    commitHooks.forEach((hook) => hook());
+
+                    return result;
+                },
             ),
         } as unknown as Sequelize;
 
@@ -73,6 +88,7 @@ describe("AuthService", () => {
             jwtService,
             config,
             sequelize,
+            createLoggerMock(),
         );
     });
 

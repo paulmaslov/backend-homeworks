@@ -9,7 +9,10 @@ export interface DatabaseConfig {
     logging: boolean;
 }
 
-export function buildSequelizeOptions(config: DatabaseConfig): Options {
+export function buildSequelizeOptions(
+    config: DatabaseConfig,
+    logQuery?: (sql: string, durationMs?: number) => void,
+): Options {
     return {
         dialect: "postgres",
         host: config.host,
@@ -17,6 +20,7 @@ export function buildSequelizeOptions(config: DatabaseConfig): Options {
         username: config.user,
         password: config.password,
         database: config.name,
-        logging: config.logging ? console.log : false,
+        benchmark: Boolean(logQuery),
+        logging: logQuery ?? false,
     };
 }

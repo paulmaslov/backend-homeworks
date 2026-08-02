@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/sequelize";
 import * as argon2 from "argon2";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
@@ -13,7 +14,7 @@ import { PaginatedDto } from "@/common/dto/paginated.dto";
 import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
 import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
 import { UserResponseDto } from "@/features/users/dto/user-response.dto";
-import { UserCache } from "@/features/users/user-cache.service";
+import { UserCacheService } from "@/features/users/user-cache.service";
 
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
@@ -25,7 +26,10 @@ export class UserService {
         private readonly userRepository: IUserRepository,
         private readonly refreshTokenRepository: IRefreshTokenRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
-        private readonly userCache: UserCache,
+        private readonly userCache: UserCacheService,
+
+        @InjectPinoLogger(UserService.name)
+        private readonly logger: PinoLogger,
     ) {}
 
     async create(dto: CreateUserDto, transaction?: Transaction): Promise<User> {
@@ -34,6 +38,10 @@ export class UserService {
             transaction,
         );
         if (existingByLogin) {
+            this.logger.debug(
+                { login: dto.login },
+                "Registration rejected: login taken",
+            );
             throw new ConflictException("User with such login already exists");
         }
 
@@ -42,6 +50,7 @@ export class UserService {
             transaction,
         );
         if (existingByEmail) {
+            this.logger.debug("Registration rejected: email taken");
             throw new ConflictException("User with such email already exists");
         }
 
@@ -61,6 +70,10 @@ export class UserService {
             );
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
+                this.logger.warn(
+                    { login: dto.login },
+                    "Unique constraint hit after pre-check",
+                );
                 throw new ConflictException(
                     "User with such login or email already exists",
                 );
@@ -77,6 +90,10 @@ export class UserService {
         if (dto.login) {
             const existing = await this.userRepository.findByLogin(dto.login);
             if (existing && existing.id !== userId) {
+                this.logger.debug(
+                    { userId, login: dto.login },
+                    "Update rejected: login taken",
+                );
                 throw new ConflictException(
                     "User with such login already exists",
                 );
@@ -86,6 +103,7 @@ export class UserService {
         if (dto.email) {
             const existing = await this.userRepository.findByEmail(dto.email);
             if (existing && existing.id !== userId) {
+                this.logger.debug({ userId }, "Update rejected: email taken");
                 throw new ConflictException(
                     "User with such email already exists",
                 );
@@ -97,6 +115,10 @@ export class UserService {
             updated = await this.userRepository.update(userId, dto);
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
+                this.logger.warn(
+                    { userId, login: dto.login },
+                    "Unique constraint hit after pre-check",
+                );
                 throw new ConflictException(
                     "User with such login or email already exists",
                 );
@@ -111,6 +133,8 @@ export class UserService {
             this.userCache.invalidateProfile(userId),
             this.userCache.invalidateList(),
         ]);
+
+        this.logger.info({ userId, fields: Object.keys(dto) }, "User updated");
 
         return new UserResponseDto(updated);
     }
@@ -129,6 +153,8 @@ export class UserService {
                 transaction,
             );
         });
+
+        this.logger.info({ userId }, "User soft-deleted");
 
         await Promise.all([
             this.userCache.invalidateProfile(userId),
