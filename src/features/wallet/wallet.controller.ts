@@ -21,8 +21,10 @@ import {
 } from "@nestjs/swagger";
 import { Response } from "express";
 
+import { ApiCommonResponses } from "@/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
+import { ErrorResponseDto } from "@/common/dto/error-response.dto";
 import { BalanceResponseDto } from "@/features/wallet/dto/balance-response.dto";
 import { DepositDto } from "@/features/wallet/dto/deposit.dto";
 import { TransferDto } from "@/features/wallet/dto/transfer.dto";
@@ -33,6 +35,11 @@ import { WalletService } from "@/features/wallet/wallet.service";
 
 @ApiTags("wallet")
 @ApiBearerAuth()
+@ApiCommonResponses()
+@ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: "Not authenticated or account deleted",
+})
 @UseGuards(AccessTokenGuard)
 @Controller("wallet")
 export class WalletController {
@@ -40,9 +47,6 @@ export class WalletController {
 
     @ApiOperation({ summary: "Get the authenticated user's balance" })
     @ApiOkResponse({ type: BalanceResponseDto })
-    @ApiUnauthorizedResponse({
-        description: "Not authenticated or account deleted",
-    })
     // баланс не кэшируется ни в редисе, ни у клиента
     @Header("Cache-Control", "no-store")
     @Get("balance")
@@ -57,13 +61,11 @@ export class WalletController {
     })
     @ApiHeader({ name: "Idempotency-Key", required: true })
     @ApiCreatedResponse({ type: TransferResponseDto })
-    @ApiBadRequestResponse({
-        description: "Invalid amount or missing Idempotency-Key",
-    })
     @ApiUnauthorizedResponse({
         description: "Not authenticated or account deleted",
     })
     @ApiConflictResponse({
+        type: ErrorResponseDto,
         description: "Balance limit exceeded or idempotency key reused",
     })
     @Post("deposits")
@@ -91,14 +93,16 @@ export class WalletController {
     @ApiHeader({ name: "Idempotency-Key", required: true })
     @ApiCreatedResponse({ type: TransferResponseDto })
     @ApiBadRequestResponse({
+        type: ErrorResponseDto,
         description:
             "Invalid payload, transfer to self or missing Idempotency-Key",
     })
-    @ApiUnauthorizedResponse({
-        description: "Not authenticated or account deleted",
+    @ApiNotFoundResponse({
+        type: ErrorResponseDto,
+        description: "Recipient not found",
     })
-    @ApiNotFoundResponse({ description: "Recipient not found" })
     @ApiConflictResponse({
+        type: ErrorResponseDto,
         description:
             "Insufficient funds, balance limit exceeded or idempotency key reused",
     })

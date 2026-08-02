@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
+    ApiBadRequestResponse,
     ApiBearerAuth,
     ApiBody,
     ApiConflictResponse,
@@ -20,14 +21,17 @@ import {
     ApiNoContentResponse,
     ApiNotFoundResponse,
     ApiOperation,
+    ApiParam,
     ApiPayloadTooLargeResponse,
     ApiTags,
     ApiUnauthorizedResponse,
     ApiUnsupportedMediaTypeResponse,
 } from "@nestjs/swagger";
 
+import { ApiCommonResponses } from "@/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
+import { ErrorResponseDto } from "@/common/dto/error-response.dto";
 import { ImageFileValidationPipe } from "@/common/pipes/image-file-validation.pipe";
 import { AvatarService } from "@/features/avatars/avatar.service";
 import {
@@ -41,6 +45,11 @@ import { UploadAvatarDto } from "@/features/avatars/dto/upload-avatar.dto";
 
 @ApiTags("avatars")
 @ApiBearerAuth()
+@ApiCommonResponses()
+@ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: "Not authenticated",
+})
 @UseGuards(AccessTokenGuard)
 @Controller("users/me/avatars")
 export class AvatarsController {
@@ -50,10 +59,21 @@ export class AvatarsController {
     @ApiConsumes("multipart/form-data")
     @ApiBody({ type: UploadAvatarDto })
     @ApiCreatedResponse({ type: AvatarResponseDto })
-    @ApiUnauthorizedResponse({ description: "Not authenticated" })
-    @ApiPayloadTooLargeResponse({ description: "File is too large" })
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "File is required",
+    })
+    @ApiPayloadTooLargeResponse({
+        type: ErrorResponseDto,
+        description: "File is too large",
+    })
     @ApiUnsupportedMediaTypeResponse({
+        type: ErrorResponseDto,
         description: "Only jpeg and png are allowed",
+    })
+    @ApiConflictResponse({
+        type: ErrorResponseDto,
+        description: `Active avatars limit is ${MAX_ACTIVE_AVATARS}`,
     })
     @ApiConflictResponse({
         description: `Active avatars limit is ${MAX_ACTIVE_AVATARS}`,
@@ -80,9 +100,16 @@ export class AvatarsController {
     @ApiOperation({
         summary: "Soft delete one of the authenticated user's avatars",
     })
+    @ApiParam({ name: "id", format: "uuid", description: "Avatar identifier" })
     @ApiNoContentResponse({ description: "Avatar deleted" })
-    @ApiUnauthorizedResponse({ description: "Not authenticated" })
-    @ApiNotFoundResponse({ description: "Avatar not found" })
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "Invalid avatar id",
+    })
+    @ApiNotFoundResponse({
+        type: ErrorResponseDto,
+        description: "Avatar not found",
+    })
     @Delete(":id")
     @HttpCode(HttpStatus.NO_CONTENT)
     async remove(

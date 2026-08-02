@@ -36,7 +36,7 @@ export class ListActiveUsersQueryDto {
     readonly limit: number = ACTIVE_USERS_DEFAULT_PAGE_LIMIT;
 
     @ApiPropertyOptional({
-        description: "Токен следующей страницы, берётся из nextCursor",
+        description: "Next page token, taken from nextCursor",
     })
     @IsOptional()
     @IsString()

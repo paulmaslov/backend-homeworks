@@ -6,7 +6,7 @@ export class UploadAvatarDto {
     @ApiProperty({
         type: "string",
         format: "binary",
-        description: "Изображение jpeg или png, до 10 МБ",
+        description: "jpeg or png image, up to 10 MB",
     })
     [AVATAR_FIELD_NAME]: Express.Multer.File;
 }

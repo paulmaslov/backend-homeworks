@@ -22,7 +22,13 @@ async function bootstrap() {
         .setTitle("Backend homeworks API")
         .setDescription("Registration, authentication and user management")
         .setVersion("1.0")
-        .addBearerAuth()
+        .addBearerAuth({
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+            description:
+                "Access token issued by POST /auth/login or /auth/register",
+        })
         .addCookieAuth(REFRESH_COOKIE)
         .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);

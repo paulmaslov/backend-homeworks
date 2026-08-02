@@ -7,7 +7,12 @@ import {
 } from "@/features/wallet/wallet.constants";
 
 export class DepositDto {
-    @ApiProperty({ example: "500.00" })
+    @ApiProperty({
+        description:
+            "Decimal string, up to 12 digits before the dot and 2 after, greater than zero",
+        pattern: AMOUNT_FORMAT.source,
+        example: "500.00",
+    })
     @IsString()
     @Matches(AMOUNT_FORMAT, {
         message: "Amount must be a decimal string with up to 2 fraction digits",

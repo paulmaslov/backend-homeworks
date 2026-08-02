@@ -24,9 +24,11 @@ import {
 import { Response } from "express";
 
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "@/auth/auth.constants";
+import { ApiCommonResponses } from "@/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@/auth/guards/access-token.guard";
 import { ApiPaginatedResponse } from "@/common/decorators/api-paginated-response.decorator";
+import { ErrorResponseDto } from "@/common/dto/error-response.dto";
 import { PaginatedDto } from "@/common/dto/paginated.dto";
 import { AgeRangePipe } from "@/common/pipes/age-range.pipe";
 import { ActiveUserService } from "@/features/users/active-user.service";
@@ -40,6 +42,11 @@ import { UserService } from "./user.service";
 
 @ApiTags("users")
 @ApiBearerAuth()
+@ApiCommonResponses()
+@ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: "Not authenticated",
+})
 @UseGuards(AccessTokenGuard)
 @Controller("users")
 export class UsersController {
@@ -50,8 +57,10 @@ export class UsersController {
 
     @ApiOperation({ summary: "Get the authenticated user's profile" })
     @ApiOkResponse({ type: UserResponseDto })
-    @ApiUnauthorizedResponse({ description: "Not authenticated" })
-    @ApiNotFoundResponse({ description: "User not found" })
+    @ApiNotFoundResponse({
+        type: ErrorResponseDto,
+        description: "User not found",
+    })
     @Get("me")
     async getMyProfile(
         @CurrentUser("userId") userId: string,
@@ -61,8 +70,18 @@ export class UsersController {
 
     @ApiOperation({ summary: "Update the authenticated user's profile" })
     @ApiOkResponse({ type: UserResponseDto })
-    @ApiConflictResponse({ description: "Login or email already taken" })
-    @ApiNotFoundResponse({ description: "User not found" })
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "Validation failed",
+    })
+    @ApiConflictResponse({
+        type: ErrorResponseDto,
+        description: "Login or email already taken",
+    })
+    @ApiNotFoundResponse({
+        type: ErrorResponseDto,
+        description: "User not found",
+    })
     @Patch("me")
     async updateMe(
         @CurrentUser("userId") userId: string,
@@ -73,6 +92,10 @@ export class UsersController {
 
     @ApiOperation({ summary: "Soft-delete the authenticated user's account" })
     @ApiNoContentResponse({ description: "Account deleted" })
+    @ApiNotFoundResponse({
+        type: ErrorResponseDto,
+        description: "User not found",
+    })
     @Delete("me")
     @HttpCode(HttpStatus.NO_CONTENT)
     async removeMe(
@@ -85,6 +108,10 @@ export class UsersController {
 
     @ApiOperation({ summary: "List users with pagination and login search" })
     @ApiPaginatedResponse(UserResponseDto)
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "Invalid pagination or search params",
+    })
     @Get()
     async findAll(
         @Query() query: ListUsersQueryDto,
@@ -95,9 +122,9 @@ export class UsersController {
     @ApiOperation({ summary: "List the most active users" })
     @ApiOkResponse({ type: ActiveUsersPageResponseDto })
     @ApiBadRequestResponse({
-        description: "Invalid query params or cursor or Query took too long",
+        type: ErrorResponseDto,
+        description: "Invalid query params or cursor, or the query timed out",
     })
-    @ApiUnauthorizedResponse({ description: "Not authenticated" })
     @Get("active")
     async findActive(
         @Query(AgeRangePipe) query: ListActiveUsersQueryDto,
