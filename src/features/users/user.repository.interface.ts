@@ -1,4 +1,5 @@
 import { Transaction } from "sequelize";
+
 import { User } from "./user.model";
 
 export interface CreateUserData {
@@ -20,6 +21,11 @@ export interface UpdateUserData {
     readonly email?: string;
     readonly age?: number;
     readonly description?: string;
+}
+
+export interface UserToReset {
+    readonly id: string;
+    readonly balance: string;
 }
 
 export abstract class IUserRepository {
@@ -59,4 +65,42 @@ export abstract class IUserRepository {
         email: string,
         transaction?: Transaction,
     ): Promise<User | null>;
+
+    abstract findByIdForUpdate(
+        id: string,
+        transaction: Transaction,
+    ): Promise<User | null>;
+
+    // списать со счета
+    // возвращает false, если не хватило средств
+    abstract debit(
+        id: string,
+        amount: string,
+        transaction: Transaction,
+    ): Promise<boolean>;
+
+    // зачислить на счет
+    // false - строки нет (пользователь удален или не существует)
+    // выход за верхний предел баланса вызывает ошибку
+    abstract credit(
+        id: string,
+        amount: string,
+        transaction: Transaction,
+    ): Promise<boolean>;
+
+    // чтобы в сервис кошелька не отдавать хеш пароля
+    abstract findBalance(id: string): Promise<string | null>;
+
+    // возвращает пользователей батчами по limit, cursor стоит по afterId
+    abstract findUserBatchForUpdate(
+        afterId: string | null,
+        limit: number,
+        transaction: Transaction,
+    ): Promise<UserToReset[]>;
+
+    // обнуляет балансы по списку id, возвращает число затронутых строк
+    abstract resetBalances(
+        ids: string[],
+        transaction: Transaction,
+    ): Promise<number>;
 }

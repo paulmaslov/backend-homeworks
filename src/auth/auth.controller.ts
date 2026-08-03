@@ -8,16 +8,9 @@ import {
     Res,
     UnauthorizedException,
 } from "@nestjs/common";
-import { AuthService } from "./auth.service";
-import { CreateUserDto } from "@/features/users/dto/create-user.dto";
-import { LoginDto } from "./dto/login.dto";
 import { ConfigService } from "@nestjs/config";
-import { Request, Response } from "express";
-import ms from "ms";
-import type { StringValue } from "ms";
-import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
 import {
+    ApiBadRequestResponse,
     ApiConflictResponse,
     ApiCookieAuth,
     ApiCreatedResponse,
@@ -27,8 +20,28 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { Request, Response } from "express";
+import type { StringValue } from "ms";
+import ms from "ms";
+
+import { ApiCommonResponses } from "@/auth/decorators/api-common-responses.decorator";
+import { AccessTokenResponseDto } from "@/auth/dto/access-token-response.dto";
+import { ErrorResponseDto } from "@/common/dto/error-response.dto";
+import { CreateUserDto } from "@/features/users/dto/create-user.dto";
+
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";
+import { AuthService } from "./auth.service";
+import { LoginDto } from "./dto/login.dto";
+
+const REFRESH_COOKIE_HEADERS = {
+    "Set-Cookie": {
+        description: `httpOnly ${REFRESH_COOKIE} cookie scoped to ${REFRESH_COOKIE_PATH}`,
+        schema: { type: "string" },
+    },
+};
 
 @ApiTags("auth")
+@ApiCommonResponses()
 @Controller("auth")
 export class AuthController {
     constructor(
@@ -36,23 +49,19 @@ export class AuthController {
         private readonly config: ConfigService,
     ) {}
 
-    private setRefreshCookie(res: Response, token: string): void {
-        res.cookie(REFRESH_COOKIE, token, {
-            httpOnly: true,
-            secure: this.config.get<boolean>("isProduction"),
-            sameSite: "strict",
-            path: REFRESH_COOKIE_PATH,
-            maxAge: ms(
-                this.config.getOrThrow<string>(
-                    "jwt.refreshExpiresIn",
-                ) as StringValue,
-            ),
-        });
-    }
-
     @ApiOperation({ summary: "Register a new user and issue tokens" })
-    @ApiCreatedResponse({ type: AccessTokenResponseDto })
-    @ApiConflictResponse({ description: "Login or email already taken" })
+    @ApiCreatedResponse({
+        type: AccessTokenResponseDto,
+        headers: REFRESH_COOKIE_HEADERS,
+    })
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "Validation failed",
+    })
+    @ApiConflictResponse({
+        type: ErrorResponseDto,
+        description: "Login or email already taken",
+    })
     @Post("register")
     async register(
         @Body() dto: CreateUserDto,
@@ -65,8 +74,18 @@ export class AuthController {
     }
 
     @ApiOperation({ summary: "Authenticate by login and password" })
-    @ApiOkResponse({ type: AccessTokenResponseDto })
-    @ApiUnauthorizedResponse({ description: "Invalid login or password" })
+    @ApiOkResponse({
+        type: AccessTokenResponseDto,
+        headers: REFRESH_COOKIE_HEADERS,
+    })
+    @ApiBadRequestResponse({
+        type: ErrorResponseDto,
+        description: "Validation failed",
+    })
+    @ApiUnauthorizedResponse({
+        type: ErrorResponseDto,
+        description: "Invalid login or password",
+    })
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async login(
@@ -79,9 +98,13 @@ export class AuthController {
     }
 
     @ApiOperation({ summary: "Rotate tokens using the refresh cookie" })
-    @ApiCookieAuth(REFRESH_COOKIE)
-    @ApiOkResponse({ type: AccessTokenResponseDto })
+    @ApiCookieAuth()
+    @ApiOkResponse({
+        type: AccessTokenResponseDto,
+        headers: REFRESH_COOKIE_HEADERS,
+    })
     @ApiUnauthorizedResponse({
+        type: ErrorResponseDto,
         description: "Missing or invalid refresh token",
     })
     @Post("refresh")
@@ -111,5 +134,19 @@ export class AuthController {
         const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
         if (raw) await this.authService.logout(raw);
         res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
+    }
+
+    private setRefreshCookie(res: Response, token: string): void {
+        res.cookie(REFRESH_COOKIE, token, {
+            httpOnly: true,
+            secure: this.config.get<boolean>("isProduction"),
+            sameSite: "strict",
+            path: REFRESH_COOKIE_PATH,
+            maxAge: ms(
+                this.config.getOrThrow<string>(
+                    "jwt.refreshExpiresIn",
+                ) as StringValue,
+            ),
+        });
     }
 }

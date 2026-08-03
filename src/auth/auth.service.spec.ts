@@ -1,15 +1,19 @@
-import { UnauthorizedException } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { Sequelize } from "sequelize-typescript";
-import { Transaction } from "sequelize";
 import { createHash } from "node:crypto";
+
+import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtService } from "@nestjs/jwt";
 import * as argon2 from "argon2";
-import { AuthService } from "./auth.service";
-import { UserService } from "@/features/users/user.service";
-import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
+import { Transaction } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
+
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
 import { User } from "@/features/users/user.model";
+import { UserService } from "@/features/users/user.service";
+
+import { AuthService } from "./auth.service";
 import { RefreshToken } from "./refresh-token.model";
+import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
 
 jest.mock("argon2");
 
@@ -59,8 +63,22 @@ describe("AuthService", () => {
         } as unknown as ConfigService;
 
         const sequelize = {
-            transaction: jest.fn((cb: (t: Transaction) => Promise<unknown>) =>
-                cb({} as Transaction),
+            transaction: jest.fn(
+                async (cb: (t: Transaction) => Promise<unknown>) => {
+                    const commitHooks: Array<() => void> = [];
+
+                    const result = await cb({
+                        afterCommit: (hook: () => void) => {
+                            commitHooks.push(hook);
+                        },
+                    } as unknown as Transaction);
+
+                    // имитируем успешный коммит - хуки выполняются после колбэка,
+                    // а не в момент регистрации
+                    commitHooks.forEach((hook) => hook());
+
+                    return result;
+                },
             ),
         } as unknown as Sequelize;
 
@@ -70,11 +88,12 @@ describe("AuthService", () => {
             jwtService,
             config,
             sequelize,
+            createLoggerMock(),
         );
     });
 
     describe("login", () => {
-        it("❌ throws UnauthorizedException when the user is not found", async () => {
+        it("Throws UnauthorizedException when the user is not found", async () => {
             userService.findByLogin.mockResolvedValue(null);
 
             await expect(
@@ -83,7 +102,7 @@ describe("AuthService", () => {
             expect(argon2.verify).not.toHaveBeenCalled();
         });
 
-        it("❌ throws UnauthorizedException when the password is invalid", async () => {
+        it("Throws UnauthorizedException when the password is invalid", async () => {
             userService.findByLogin.mockResolvedValue(makeUser());
             jest.mocked(argon2.verify).mockResolvedValue(false);
 
@@ -92,7 +111,7 @@ describe("AuthService", () => {
             ).rejects.toThrow(UnauthorizedException);
         });
 
-        it("✅ returns a token pair for valid credentials", async () => {
+        it("Returns a token pair for valid credentials", async () => {
             userService.findByLogin.mockResolvedValue(makeUser());
             jest.mocked(argon2.verify).mockResolvedValue(true);
 
@@ -108,7 +127,7 @@ describe("AuthService", () => {
     });
 
     describe("refresh", () => {
-        it("❌ throws UnauthorizedException when the token is not found", async () => {
+        it("Throws UnauthorizedException when the token is not found", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue(null);
 
             await expect(service.refresh("raw-token")).rejects.toThrow(
@@ -116,7 +135,7 @@ describe("AuthService", () => {
             );
         });
 
-        it("❌ throws UnauthorizedException and deletes an expired token", async () => {
+        it("Throws UnauthorizedException and deletes an expired token", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue({
                 userId: "user-1",
                 expiresAt: new Date(Date.now() - 1000),
@@ -128,7 +147,7 @@ describe("AuthService", () => {
             expect(refreshTokenRepository.deleteByTokenHash).toHaveBeenCalled();
         });
 
-        it("✅ rotates the token and returns a new pair", async () => {
+        it("Rotates the token and returns a new pair", async () => {
             refreshTokenRepository.findByTokenHash.mockResolvedValue({
                 userId: "user-1",
                 expiresAt: new Date(Date.now() + 60000),
@@ -144,7 +163,7 @@ describe("AuthService", () => {
     });
 
     describe("register", () => {
-        it("✅ creates the user and issues a token pair", async () => {
+        it("Creates the user and issues a token pair", async () => {
             userService.create.mockResolvedValue(makeUser());
 
             const result = await service.register({
@@ -161,7 +180,7 @@ describe("AuthService", () => {
     });
 
     describe("logout", () => {
-        it("✅ deletes the refresh token by its hash", async () => {
+        it("Deletes the refresh token by its hash", async () => {
             await service.logout("raw-token");
 
             expect(

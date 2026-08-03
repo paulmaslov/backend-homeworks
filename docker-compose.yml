@@ -12,7 +12,67 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  minio:
+    image: minio/minio
+    container_name: backend-homeworks-minio
+    restart: unless-stopped
+    command: server --console-address ":9001" /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+  minio-init:
+    image: minio/mc
+    container_name: backend-homeworks-minio-init
+    depends_on:
+      - minio
+    configs:
+      - source: avatars_policy
+        target: /policy.json
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        echo 'waiting for minio...'; sleep 1;
+      done;
+      mc mb --ignore-existing local/${S3_BUCKET};
+      mc anonymous set-json /policy.json local/${S3_BUCKET};
+      "
+  redis:
+    image: redis:7-alpine
+    container_name: backend-homeworks-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --port ${REDIS_PORT}
+    ports:
+      - '${REDIS_PORT}:${REDIS_PORT}'
+    healthcheck:
+      test: [ 'CMD', 'redis-cli', '-p', '${REDIS_PORT}', '-a', '${REDIS_PASSWORD}', 'ping' ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+configs:
+  avatars_policy:
+    content: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "PublicReadAvatars",
+            "Effect": "Allow",
+            "Principal": { "AWS": ["*"] },
+            "Action": ["s3:GetObject"],
+            "Resource": ["arn:aws:s3:::${S3_BUCKET}/*"]
+          }
+        ]
+      }
+
 volumes:
   postgres_data:
+  minio_storage:
 
 

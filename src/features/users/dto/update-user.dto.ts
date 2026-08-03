@@ -1,15 +1,17 @@
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
     IsEmail,
     IsInt,
     IsOptional,
     IsString,
+    Max,
     MaxLength,
     Min,
-    Max,
     MinLength,
 } from "class-validator";
-import { Transform } from "class-transformer";
-import { ApiPropertyOptional } from "@nestjs/swagger";
+
+import { MAX_USER_AGE, MIN_USER_AGE } from "@/features/users/user.constants";
 
 export class UpdateUserDto {
     @ApiPropertyOptional({ example: "john" })
@@ -31,8 +33,8 @@ export class UpdateUserDto {
     @ApiPropertyOptional({ example: 26 })
     @IsOptional()
     @IsInt({ message: "Age must be an integer" })
-    @Min(14, { message: "Age must be at least 14" })
-    @Max(140, { message: "Age must be at most 140" })
+    @Min(MIN_USER_AGE, { message: "Age must be at least 14" })
+    @Max(MAX_USER_AGE, { message: "Age must be at most 140" })
     readonly age?: number;
 
     @ApiPropertyOptional({ example: "Updated bio" })
