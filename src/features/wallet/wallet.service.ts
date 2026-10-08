@@ -16,9 +16,15 @@ import { BalanceResponseDto } from "@/features/wallet/dto/balance-response.dto";
 import { DepositDto } from "@/features/wallet/dto/deposit.dto";
 import { TransferDto } from "@/features/wallet/dto/transfer.dto";
 import { TransferResponseDto } from "@/features/wallet/dto/transfer-response.dto";
-import { IIdempotencyRepository } from "@/features/wallet/idempotency.repository.interface";
+import {
+    CreateIdempotencyKeyData,
+    IIdempotencyRepository,
+} from "@/features/wallet/idempotency.repository.interface";
 import { buildRequestHash } from "@/features/wallet/request-hash";
-import { ITransferRepository } from "@/features/wallet/transfer.repository.interface";
+import {
+    CreateTransferData,
+    ITransferRepository,
+} from "@/features/wallet/transfer.repository.interface";
 import {
     WALLET_ENDPOINTS,
     WALLET_ERROR_CODES,
@@ -59,7 +65,7 @@ export class WalletService {
         return new BalanceResponseDto(balance);
     }
 
-    //  самопополнение было сделано для тестирования функции
+    // самопополнение было сделано для тестирования функции
     // в настоящей системе деньги бы приходили через платежного провайдера
     async deposit(
         userId: string,
@@ -72,81 +78,39 @@ export class WalletService {
             null,
         );
 
-        try {
-            const transfer = await this.sequelize.transaction(
-                async (transaction) => {
-                    // ключ пишем в той же транзакции, что и операцию, и вся
-                    // защита держится на ограничении уникальности ключа, явной проверки
-                    // занят ли ключ нет намеренно - она была бы гонкой сама
-                    // по себе - проверил свободен, а пока выполнял, его занял другой
-                    const record = await this.idempotencyRepository.create(
-                        {
-                            userId,
-                            endpoint: WALLET_ENDPOINTS.DEPOSITS,
-                            key: idempotencyKey,
-                            requestHash,
-                        },
-                        transaction,
-                    );
-
-                    const credited = await this.userRepository.credit(
-                        userId,
-                        dto.amount,
-                        transaction,
-                    );
-
-                    // если пытаемся пополнить кошелек удаленного аккаунта
-                    if (!credited) {
-                        this.logger.warn(
-                            { userId, amount: dto.amount },
-                            "Deposit to a deleted account",
-                        );
-                        throw new UnauthorizedException({
-                            code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
-                            message: "Account has been deleted",
-                        });
-                    }
-
-                    const created = await this.transferRepository.create(
-                        {
-                            fromUserId: null,
-                            toUserId: userId,
-                            amount: dto.amount,
-                        },
-                        transaction,
-                    );
-
-                    await this.idempotencyRepository.attachTransfer(
-                        record.id,
-                        created.id,
-                        transaction,
-                    );
-
-                    return created;
-                },
-            );
-
-            this.logger.info(
-                { userId, transferId: transfer.id, amount: transfer.amount },
-                "Deposit completed",
-            );
-
-            return {
-                transfer: new TransferResponseDto(transfer),
-                replayed: false,
-            };
-        } catch (error) {
-            if (error instanceof UniqueConstraintError) {
-                return this.replay(
+        return this.runIdempotent(
+            {
+                userId,
+                endpoint: WALLET_ENDPOINTS.DEPOSITS,
+                key: idempotencyKey,
+                requestHash,
+            },
+            async (transaction) => {
+                const credited = await this.userRepository.credit(
                     userId,
-                    WALLET_ENDPOINTS.DEPOSITS,
-                    idempotencyKey,
-                    requestHash,
+                    dto.amount,
+                    transaction,
                 );
-            }
-            // проверяем, нед ли выхода за пределы допустимого диапазона баланса
-            rethrowCheckViolation(error);
-        }
+
+                // если пытаемся пополнить кошелек удаленного аккаунта
+                if (!credited) {
+                    this.logger.warn(
+                        { userId, amount: dto.amount },
+                        "Deposit to a deleted account",
+                    );
+                    throw new UnauthorizedException({
+                        code: WALLET_ERROR_CODES.ACCOUNT_DELETED,
+                        message: "Account has been deleted",
+                    });
+                }
+
+                return {
+                    fromUserId: null,
+                    toUserId: userId,
+                    amount: dto.amount,
+                };
+            },
+        );
     }
 
     async transfer(
@@ -168,79 +132,97 @@ export class WalletService {
             dto.toUserId,
         );
 
-        try {
-            const transfer = await this.sequelize.transaction(
-                async (transaction) => {
-                    await this.lockParticipants(
-                        fromUserId,
-                        dto.toUserId,
-                        transaction,
+        return this.runIdempotent(
+            {
+                userId: fromUserId,
+                endpoint: WALLET_ENDPOINTS.TRANSFERS,
+                key: idempotencyKey,
+                requestHash,
+            },
+            async (transaction) => {
+                const debited = await this.userRepository.debit(
+                    fromUserId,
+                    dto.amount,
+                    transaction,
+                );
+
+                if (!debited) {
+                    this.logger.warn(
+                        { fromUserId, amount: dto.amount },
+                        "Insufficient funds",
                     );
+                    throw new ConflictException({
+                        code: WALLET_ERROR_CODES.INSUFFICIENT_FUNDS,
+                        message: "Insufficient funds",
+                    });
+                }
 
-                    // создаем запись с ключом идемпотентности после лока
-                    // фор апдейт на пользователях, тк в модели ключей
-                    // идемпотентности есть fk на пользователе - при вставке
-                    // строки с новым ключом идемпотентности на строке с пользователем
-                    // берется for key share лок, который конфликтует с for update локом
-                    const record = await this.idempotencyRepository.create(
-                        {
-                            userId: fromUserId,
-                            endpoint: WALLET_ENDPOINTS.TRANSFERS,
-                            key: idempotencyKey,
-                            requestHash,
-                        },
-                        transaction,
-                    );
+                const credited = await this.userRepository.credit(
+                    dto.toUserId,
+                    dto.amount,
+                    transaction,
+                );
 
-                    const debited = await this.userRepository.debit(
-                        fromUserId,
-                        dto.amount,
-                        transaction,
-                    );
-
-                    if (!debited) {
-                        this.logger.warn(
-                            { fromUserId, amount: dto.amount },
-                            "Insufficient funds",
-                        );
-                        throw new ConflictException({
-                            code: WALLET_ERROR_CODES.INSUFFICIENT_FUNDS,
-                            message: "Insufficient funds",
-                        });
-                    }
-
-                    const credited = await this.userRepository.credit(
-                        dto.toUserId,
-                        dto.amount,
-                        transaction,
-                    );
-
-                    // сейчас проверка проходит всегда из-за блокировки lockParticipants, но
-                    // эта гарантия в другом методе и если при рефакторинге ее
-                    // уберут, деньги могут списаться и не дойти
-                    if (!credited) {
-                        this.logger.error(
-                            {
-                                fromUserId,
-                                toUserId: dto.toUserId,
-                                amount: dto.amount,
-                            },
-                            "Credit affected 0 rows for a locked recipient",
-                        );
-                        // если мы попали в эту ветку, то порядок блокировок
-                        // сломан, поэтому мы обязаны залогировать эту
-                        // ошибку в all-exception фильтру
-                        throw new Error(
-                            `credit affected 0 rows for locked recipient ${dto.toUserId}`,
-                        );
-                    }
-
-                    const created = await this.transferRepository.create(
+                // сейчас проверка проходит всегда из-за блокировки lockParticipants, но
+                // эта гарантия в другом методе и если при рефакторинге ее
+                // уберут, деньги могут списаться и не дойти
+                if (!credited) {
+                    this.logger.error(
                         {
                             fromUserId,
                             toUserId: dto.toUserId,
                             amount: dto.amount,
                         },
+                        "Credit affected 0 rows for a locked recipient",
+                    );
+                    // если мы попали в эту ветку, то порядок блокировок
+                    // сломан, поэтому мы обязаны залогировать эту
+                    // ошибку в all-exception фильтре
+                    throw new Error(
+                        `credit affected 0 rows for locked recipient ${dto.toUserId}`,
+                    );
+                }
+
+                return {
+                    fromUserId,
+                    toUserId: dto.toUserId,
+                    amount: dto.amount,
+                };
+            },
+            (transaction) =>
+                this.lockParticipants(fromUserId, dto.toUserId, transaction),
+        );
+    }
+
+    private async runIdempotent(
+        keyData: CreateIdempotencyKeyData,
+        operation: (transaction: Transaction) => Promise<CreateTransferData>,
+        lock?: (transaction: Transaction) => Promise<void>,
+    ): Promise<WalletOperationResult> {
+        try {
+            const transfer = await this.sequelize.transaction(
+                async (transaction) => {
+                    // создаем запись с ключом идемпотентности после лока
+                    // фор апдейт на пользователях, тк в модели ключей
+                    // идемпотентности есть fk на пользователе - при вставке
+                    // строки с новым ключом идемпотентности на строке с пользователем
+                    // берется for key share лок, который конфликтует с for update локом
+                    if (lock) {
+                        await lock(transaction);
+                    }
+
+                    // ключ пишем в той же транзакции, что и операцию, и вся
+                    // защита держится на ограничении уникальности ключа, явной проверки
+                    // занят ли ключ нет намеренно - она была бы гонкой сама
+                    // по себе - проверил свободен, а пока выполнял, его занял другой
+                    const record = await this.idempotencyRepository.create(
+                        keyData,
+                        transaction,
+                    );
+
+                    const transferData = await operation(transaction);
+                    const created = await this.transferRepository.create(
+                        transferData,
                         transaction,
                     );
 
@@ -256,12 +238,13 @@ export class WalletService {
 
             this.logger.info(
                 {
-                    fromUserId,
-                    toUserId: transfer.toUserId,
+                    endpoint: keyData.endpoint,
                     transferId: transfer.id,
+                    fromUserId: transfer.fromUserId,
+                    toUserId: transfer.toUserId,
                     amount: transfer.amount,
                 },
-                "Transfer completed",
+                "Wallet operation completed",
             );
 
             return {
@@ -271,10 +254,10 @@ export class WalletService {
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
                 return this.replay(
-                    fromUserId,
-                    WALLET_ENDPOINTS.TRANSFERS,
-                    idempotencyKey,
-                    requestHash,
+                    keyData.userId,
+                    keyData.endpoint,
+                    keyData.key,
+                    keyData.requestHash,
                 );
             }
 
