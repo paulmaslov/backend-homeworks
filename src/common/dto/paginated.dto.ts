@@ -1,9 +1,19 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 export class PaginationMeta {
+    @ApiProperty({
+        description: "Total rows matching the filter",
+        example: 137,
+    })
     readonly total: number;
+
+    @ApiProperty({ description: "Current page, 1-based", example: 1 })
     readonly page: number;
+
+    @ApiProperty({ description: "Requested page size", example: 20 })
     readonly limit: number;
+
+    @ApiProperty({ example: 7 })
     readonly totalPages: number;
 }
 

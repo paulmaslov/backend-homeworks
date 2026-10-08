@@ -1,12 +1,17 @@
 import { ConflictException, NotFoundException } from "@nestjs/common";
+import * as argon2 from "argon2";
 import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
-import * as argon2 from "argon2";
-import { UserService } from "./user.service";
-import { IUserRepository } from "./user.repository.interface";
+
 import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
-import { User } from "./user.model";
+import { createLoggerMock } from "@/common/testing/create-logger-mock";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UserCacheService } from "@/features/users/user-cache.service";
+
 import { CreateUserDto } from "./dto/create-user.dto";
+import { User } from "./user.model";
+import { IUserRepository } from "./user.repository.interface";
+import { UserService } from "./user.service";
 
 jest.mock("argon2");
 
@@ -25,6 +30,7 @@ describe("UserService", () => {
     let service: UserService;
     let userRepository: jest.Mocked<IUserRepository>;
     let refreshTokenRepository: jest.Mocked<IRefreshTokenRepository>;
+    let userCache: jest.Mocked<UserCacheService>;
 
     beforeEach(() => {
         userRepository = {
@@ -36,6 +42,12 @@ describe("UserService", () => {
             findAndCount: jest.fn(),
             update: jest.fn(),
             softDelete: jest.fn(),
+            findByIdForUpdate: jest.fn(),
+            debit: jest.fn(),
+            credit: jest.fn(),
+            findBalance: jest.fn(),
+            findUserBatchForUpdate: jest.fn(),
+            resetBalances: jest.fn(),
         };
 
         refreshTokenRepository = {
@@ -51,10 +63,24 @@ describe("UserService", () => {
             ),
         } as unknown as Sequelize;
 
+        userCache = {
+            wrapProfile: jest.fn(
+                (_userId: string, load: () => Promise<unknown>) => load(),
+            ),
+            wrapList: jest.fn(
+                (_query: ListUsersQueryDto, load: () => Promise<unknown>) =>
+                    load(),
+            ),
+            invalidateProfile: jest.fn(),
+            invalidateList: jest.fn(),
+        } as unknown as jest.Mocked<UserCacheService>;
+
         service = new UserService(
             userRepository,
             refreshTokenRepository,
             sequelize,
+            userCache,
+            createLoggerMock(),
         );
 
         jest.mocked(argon2.hash).mockResolvedValue("hashed-password");
@@ -68,7 +94,7 @@ describe("UserService", () => {
             age: 25,
         } as CreateUserDto;
 
-        it("❌ throws ConflictException when the login already exists", async () => {
+        it("Throws ConflictException when the login already exists", async () => {
             userRepository.findByLogin.mockResolvedValue(makeUser());
 
             await expect(service.create(dto)).rejects.toThrow(
@@ -77,7 +103,7 @@ describe("UserService", () => {
             expect(userRepository.create).not.toHaveBeenCalled();
         });
 
-        it("❌ throws ConflictException when the email already exists", async () => {
+        it("Throws ConflictException when the email already exists", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(makeUser());
 
@@ -87,7 +113,7 @@ describe("UserService", () => {
             expect(userRepository.create).not.toHaveBeenCalled();
         });
 
-        it("❌ maps a UniqueConstraintError to ConflictException", async () => {
+        it("Maps a UniqueConstraintError to ConflictException", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
             userRepository.create.mockRejectedValue(
@@ -99,7 +125,7 @@ describe("UserService", () => {
             );
         });
 
-        it("✅ hashes the password and stores the hash, not the raw value", async () => {
+        it("Hashes the password and stores the hash, not the raw value", async () => {
             userRepository.findByLogin.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
             const created = makeUser();
@@ -114,12 +140,45 @@ describe("UserService", () => {
             );
             expect(result).toBe(created);
         });
+
+        it("Invalidates the users list", async () => {
+            userRepository.findByLogin.mockResolvedValue(null);
+            userRepository.findByEmail.mockResolvedValue(null);
+            userRepository.create.mockResolvedValue(makeUser());
+
+            await service.create(dto);
+
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
+
+        it("Invalidates the users list only after the transaction is committed", async () => {
+            let commitHook: (() => Promise<void>) | undefined;
+            const transaction = {
+                afterCommit: (hook: () => Promise<void>) => {
+                    commitHook = hook;
+                },
+            } as unknown as Transaction;
+
+            userRepository.findByLogin.mockResolvedValue(null);
+            userRepository.findByEmail.mockResolvedValue(null);
+            userRepository.create.mockResolvedValue(makeUser());
+
+            await service.create(dto, transaction);
+
+            // до коммита нового пользователя не видно другим сессиям
+            expect(userCache.invalidateList).not.toHaveBeenCalled();
+
+            expect(commitHook).toBeDefined();
+            await commitHook?.();
+
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
     });
 
     describe("update", () => {
         const userId = "user-1";
 
-        it("❌ throws ConflictException when the login is taken by another user", async () => {
+        it("Throws ConflictException when the login is taken by another user", async () => {
             userRepository.findByLogin.mockResolvedValue(
                 makeUser({ id: "other" }),
             );
@@ -129,7 +188,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("❌ throws ConflictException when the email is taken by another user", async () => {
+        it("Throws ConflictException when the email is taken by another user", async () => {
             userRepository.findByEmail.mockResolvedValue(
                 makeUser({ id: "other" }),
             );
@@ -141,7 +200,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("❌ throws NotFoundException when the user does not exist", async () => {
+        it("Throws NotFoundException when the user does not exist", async () => {
             userRepository.update.mockResolvedValue(null);
 
             await expect(service.update(userId, { age: 30 })).rejects.toThrow(
@@ -149,7 +208,7 @@ describe("UserService", () => {
             );
         });
 
-        it("❌ maps a UniqueConstraintError to ConflictException", async () => {
+        it("Maps a UniqueConstraintError to ConflictException", async () => {
             userRepository.update.mockRejectedValue(
                 new UniqueConstraintError({ errors: [] }),
             );
@@ -159,7 +218,7 @@ describe("UserService", () => {
             ).rejects.toThrow(ConflictException);
         });
 
-        it("✅ does not conflict when the login belongs to the same user", async () => {
+        it("Does not conflict when the login belongs to the same user", async () => {
             userRepository.findByLogin.mockResolvedValue(
                 makeUser({ id: userId }),
             );
@@ -170,7 +229,7 @@ describe("UserService", () => {
             ).resolves.toBeDefined();
         });
 
-        it("✅ returns a UserResponseDto without the password", async () => {
+        it("Returns a UserResponseDto without the password", async () => {
             userRepository.update.mockResolvedValue(
                 makeUser({ password: "secret-hash" }),
             );
@@ -182,10 +241,19 @@ describe("UserService", () => {
             expect(result).not.toHaveProperty("password");
             expect(result.id).toBe("user-1");
         });
+
+        it("Drops the cached profile and the users list", async () => {
+            userRepository.update.mockResolvedValue(makeUser());
+
+            await service.update(userId, { age: 30 });
+
+            expect(userCache.invalidateProfile).toHaveBeenCalledWith(userId);
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
     });
 
     describe("remove", () => {
-        it("❌ throws NotFoundException when nothing was deleted", async () => {
+        it("Throws NotFoundException when nothing was deleted", async () => {
             userRepository.softDelete.mockResolvedValue(0);
 
             await expect(service.remove("user-1")).rejects.toThrow(
@@ -196,7 +264,7 @@ describe("UserService", () => {
             ).not.toHaveBeenCalled();
         });
 
-        it("✅ soft-deletes the user and revokes refresh tokens", async () => {
+        it("Soft-deletes the user and revokes refresh tokens", async () => {
             userRepository.softDelete.mockResolvedValue(1);
             refreshTokenRepository.deleteByUserId.mockResolvedValue(2);
 
@@ -211,10 +279,31 @@ describe("UserService", () => {
                 expect.anything(),
             );
         });
+
+        it("Drops the cached profile and the users list", async () => {
+            userRepository.softDelete.mockResolvedValue(1);
+            refreshTokenRepository.deleteByUserId.mockResolvedValue(1);
+
+            await service.remove("user-1");
+
+            expect(userCache.invalidateProfile).toHaveBeenCalledWith("user-1");
+            expect(userCache.invalidateList).toHaveBeenCalled();
+        });
+
+        it("Keeps the cache untouched when the user was not found", async () => {
+            userRepository.softDelete.mockResolvedValue(0);
+
+            await expect(service.remove("user-1")).rejects.toThrow(
+                NotFoundException,
+            );
+
+            expect(userCache.invalidateProfile).not.toHaveBeenCalled();
+            expect(userCache.invalidateList).not.toHaveBeenCalled();
+        });
     });
 
     describe("findAll", () => {
-        it("✅ computes the offset from page and limit", async () => {
+        it("Computes the offset from page and limit", async () => {
             userRepository.findAndCount.mockResolvedValue({
                 rows: [],
                 count: 0,
@@ -229,7 +318,7 @@ describe("UserService", () => {
             });
         });
 
-        it("✅ maps rows to UserResponseDto without password and builds meta", async () => {
+        it("Maps rows to UserResponseDto without password and builds meta", async () => {
             userRepository.findAndCount.mockResolvedValue({
                 rows: [makeUser({ password: "secret" })],
                 count: 1,
@@ -247,6 +336,19 @@ describe("UserService", () => {
                 limit: 20,
                 totalPages: 1,
             });
+        });
+    });
+
+    describe("getProfile", () => {
+        it("Returns a UserResponseDto without the password", async () => {
+            userRepository.findByIdOrFail.mockResolvedValue(
+                makeUser({ password: "secret-hash" }),
+            );
+
+            const result = await service.getProfile("user-1");
+
+            expect(result).not.toHaveProperty("password");
+            expect(result.id).toBe("user-1");
         });
     });
 });

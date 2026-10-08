@@ -1,5 +1,5 @@
-import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform, Type } from "class-transformer";
 import {
     IsInt,
     IsOptional,
@@ -25,6 +25,9 @@ export class ListUsersQueryDto {
 
     @ApiPropertyOptional({ example: "john" })
     @IsOptional()
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === "string" ? value.trim() : value,
+    )
     @IsString()
     @MaxLength(50) // login максимум 50 символов в соответствие с моделью пользователя
     readonly search?: string;

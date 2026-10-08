@@ -1,8 +1,9 @@
 import { Module } from "@nestjs/common";
 import { SequelizeModule } from "@nestjs/sequelize";
+
 import { RefreshToken } from "./refresh-token.model";
-import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
 import { RefreshTokenRepository } from "./refresh-token.repository";
+import { IRefreshTokenRepository } from "./refresh-token.repository.interface";
 
 @Module({
     imports: [SequelizeModule.forFeature([RefreshToken])],

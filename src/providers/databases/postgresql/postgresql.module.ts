@@ -1,6 +1,11 @@
-import { Module } from "@nestjs/common";
-import { SequelizeModule } from "@nestjs/sequelize";
+import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { SequelizeModule } from "@nestjs/sequelize";
+
+import {
+    buildSequelizeOptions,
+    DatabaseConfig,
+} from "@/providers/databases/postgresql/sequelize-options";
 
 @Module({
     imports: [
@@ -8,21 +13,19 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: (config: ConfigService) => {
-                // console.log('DB config:', {
-                //     host: config.get('database.host'),
-                //     port: config.get('database.port'),
-                //     user: config.get('database.user'),
-                //     name: config.get('database.name'),
-                // });
+                const database = config.getOrThrow<DatabaseConfig>("database");
+                const logger = new Logger("Sequelize");
+
                 return {
-                    dialect: "postgres",
-                    host: config.get<string>("database.host"),
-                    port: config.get<number>("database.port"),
-                    username: config.get<string>("database.user"),
-                    password: config.get<string>("database.password"),
-                    database: config.get<string>("database.name"),
+                    ...buildSequelizeOptions(
+                        database,
+                        database.logging
+                            ? (sql, durationMs) =>
+                                  logger.debug({ sql, durationMs }, "query")
+                            : undefined,
+                    ),
                     autoLoadModels: true,
-                    synchronize: true,
+                    synchronize: false,
                 };
             },
         }),

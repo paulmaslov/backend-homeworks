@@ -1,30 +1,20 @@
-import { HttpAdapterHost, NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
-import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
-import { ValidationPipe, VersioningType } from "@nestjs/common";
-import cookieParser from "cookie-parser";
+import { Logger as NestLogger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { Logger } from "nestjs-pino";
+
+import { setupApp } from "@/common/setup-app";
+
+import { AppModule } from "./app.module";
 import { REFRESH_COOKIE } from "./auth/auth.constants";
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule, { bufferLogs: true });
+    app.useLogger(app.get(Logger));
     const config = app.get(ConfigService);
 
-    app.setGlobalPrefix("api");
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
-
-    app.useGlobalPipes(
-        new ValidationPipe({
-            whitelist: true,
-            forbidNonWhitelisted: true,
-            transform: true,
-        }),
-    );
-
-    app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
-
-    app.use(cookieParser());
+    setupApp(app);
 
     app.enableCors({
         origin: config.getOrThrow<string>("cors.origin"),
@@ -35,12 +25,32 @@ async function bootstrap() {
         .setTitle("Backend homeworks API")
         .setDescription("Registration, authentication and user management")
         .setVersion("1.0")
-        .addBearerAuth()
+        .addBearerAuth({
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+            description:
+                "Access token issued by POST /auth/login or /auth/register",
+        })
         .addCookieAuth(REFRESH_COOKIE)
         .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup("api/v1/docs", app, document);
 
-    await app.listen(config.getOrThrow<number>("port"));
+    app.enableShutdownHooks();
+
+    const port = config.getOrThrow<number>("port");
+    await app.listen(port);
+
+    new NestLogger("Bootstrap").log(
+        `Application is listening on port ${port} in ${config.getOrThrow<string>("nodeEnv")} mode`,
+    );
 }
-void bootstrap();
+
+void bootstrap().catch((error: unknown) => {
+    new NestLogger("Bootstrap").fatal(
+        "Application failed to start",
+        error instanceof Error ? error.stack : String(error),
+    );
+    process.exitCode = 1;
+});

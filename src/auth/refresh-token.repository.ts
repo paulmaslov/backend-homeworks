@@ -1,12 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import { RefreshToken } from "./refresh-token.model";
+import { InjectModel } from "@nestjs/sequelize";
+import { Transaction } from "sequelize";
+
 import { BaseRepository } from "@/common/repositories/base.repository";
+
+import { RefreshToken } from "./refresh-token.model";
 import {
     CreateRefreshTokenData,
     IRefreshTokenRepository,
 } from "./refresh-token.repository.interface";
-import { InjectModel } from "@nestjs/sequelize";
-import { Transaction } from "sequelize";
 
 @Injectable()
 export class RefreshTokenRepository

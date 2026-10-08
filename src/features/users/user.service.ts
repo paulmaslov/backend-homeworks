@@ -3,18 +3,22 @@ import {
     Injectable,
     NotFoundException,
 } from "@nestjs/common";
-import { IUserRepository } from "./user.repository.interface";
+import { InjectConnection } from "@nestjs/sequelize";
+import * as argon2 from "argon2";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
+import { Transaction, UniqueConstraintError } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
+
+import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
+import { PaginatedDto } from "@/common/dto/paginated.dto";
+import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
+import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
+import { UserResponseDto } from "@/features/users/dto/user-response.dto";
+import { UserCacheService } from "@/features/users/user-cache.service";
+
 import { CreateUserDto } from "./dto/create-user.dto";
 import { User } from "./user.model";
-import * as argon2 from "argon2";
-import { Transaction, UniqueConstraintError } from "sequelize";
-import { ListUsersQueryDto } from "@/features/users/dto/list-users-query.dto";
-import { UserResponseDto } from "@/features/users/dto/user-response.dto";
-import { PaginatedDto } from "@/common/dto/paginated.dto";
-import { UpdateUserDto } from "@/features/users/dto/update-user.dto";
-import { IRefreshTokenRepository } from "@/auth/refresh-token.repository.interface";
-import { InjectConnection } from "@nestjs/sequelize";
-import { Sequelize } from "sequelize-typescript";
+import { IUserRepository } from "./user.repository.interface";
 
 @Injectable()
 export class UserService {
@@ -22,6 +26,10 @@ export class UserService {
         private readonly userRepository: IUserRepository,
         private readonly refreshTokenRepository: IRefreshTokenRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
+        private readonly userCache: UserCacheService,
+
+        @InjectPinoLogger(UserService.name)
+        private readonly logger: PinoLogger,
     ) {}
 
     async create(dto: CreateUserDto, transaction?: Transaction): Promise<User> {
@@ -30,6 +38,10 @@ export class UserService {
             transaction,
         );
         if (existingByLogin) {
+            this.logger.debug(
+                { login: dto.login },
+                "Registration rejected: login taken",
+            );
             throw new ConflictException("User with such login already exists");
         }
 
@@ -38,13 +50,15 @@ export class UserService {
             transaction,
         );
         if (existingByEmail) {
+            this.logger.debug("Registration rejected: email taken");
             throw new ConflictException("User with such email already exists");
         }
 
         const passwordHash = await argon2.hash(dto.password);
 
+        let user: User;
         try {
-            return await this.userRepository.create(
+            user = await this.userRepository.create(
                 {
                     login: dto.login,
                     email: dto.email,
@@ -56,12 +70,19 @@ export class UserService {
             );
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
+                this.logger.warn(
+                    { login: dto.login },
+                    "Unique constraint hit after pre-check",
+                );
                 throw new ConflictException(
                     "User with such login or email already exists",
                 );
             }
             throw error;
         }
+
+        await this.invalidateListAfterCommit(transaction);
+        return user;
     }
 
     async update(userId: string, dto: UpdateUserDto): Promise<UserResponseDto> {
@@ -69,6 +90,10 @@ export class UserService {
         if (dto.login) {
             const existing = await this.userRepository.findByLogin(dto.login);
             if (existing && existing.id !== userId) {
+                this.logger.debug(
+                    { userId, login: dto.login },
+                    "Update rejected: login taken",
+                );
                 throw new ConflictException(
                     "User with such login already exists",
                 );
@@ -78,6 +103,7 @@ export class UserService {
         if (dto.email) {
             const existing = await this.userRepository.findByEmail(dto.email);
             if (existing && existing.id !== userId) {
+                this.logger.debug({ userId }, "Update rejected: email taken");
                 throw new ConflictException(
                     "User with such email already exists",
                 );
@@ -89,6 +115,10 @@ export class UserService {
             updated = await this.userRepository.update(userId, dto);
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
+                this.logger.warn(
+                    { userId, login: dto.login },
+                    "Unique constraint hit after pre-check",
+                );
                 throw new ConflictException(
                     "User with such login or email already exists",
                 );
@@ -98,6 +128,14 @@ export class UserService {
         if (!updated) {
             throw new NotFoundException(`User with id ${userId} not found`);
         }
+
+        await Promise.all([
+            this.userCache.invalidateProfile(userId),
+            this.userCache.invalidateList(),
+        ]);
+
+        this.logger.info({ userId, fields: Object.keys(dto) }, "User updated");
+
         return new UserResponseDto(updated);
     }
 
@@ -115,9 +153,60 @@ export class UserService {
                 transaction,
             );
         });
+
+        this.logger.info({ userId }, "User soft-deleted");
+
+        await Promise.all([
+            this.userCache.invalidateProfile(userId),
+            this.userCache.invalidateList(),
+        ]);
     }
 
     async findAll(
+        query: ListUsersQueryDto,
+    ): Promise<PaginatedDto<UserResponseDto>> {
+        return this.userCache.wrapList(query, () => this.loadPage(query));
+    }
+
+    // чтобы пароль пользователя не уходил в редис
+    async getProfile(userId: string): Promise<UserResponseDto> {
+        return this.userCache.wrapProfile(
+            userId,
+            async () =>
+                new UserResponseDto(
+                    await this.userRepository.findByIdOrFail(userId),
+                ),
+        );
+    }
+
+    async findByLogin(login: string): Promise<User | null> {
+        return this.userRepository.findByLogin(login);
+    }
+
+    async findByIdOrFail(id: string): Promise<User> {
+        return this.userRepository.findByIdOrFail(id);
+    }
+
+    async findById(id: string): Promise<User | null> {
+        return this.userRepository.findById(id);
+    }
+
+    async lockByIdOrFail(
+        userId: string,
+        transaction: Transaction,
+    ): Promise<User> {
+        const user = await this.userRepository.findByIdForUpdate(
+            userId,
+            transaction,
+        );
+        if (!user) {
+            throw new NotFoundException(`User with id ${userId} not found`);
+        }
+
+        return user;
+    }
+
+    private async loadPage(
         query: ListUsersQueryDto,
     ): Promise<PaginatedDto<UserResponseDto>> {
         const { page, limit, search } = query;
@@ -134,15 +223,16 @@ export class UserService {
         return new PaginatedDto(data, count, page, limit);
     }
 
-    async findByLogin(login: string): Promise<User | null> {
-        return this.userRepository.findByLogin(login);
-    }
+    // сбрасываем список только после коммита транзакции, если бы мы сбрасывали
+    // версию сразу, нового пользователя не было бы видно в последней версии
+    private async invalidateListAfterCommit(
+        transaction?: Transaction,
+    ): Promise<void> {
+        if (!transaction) {
+            await this.userCache.invalidateList();
+            return;
+        }
 
-    async findByIdOrFail(id: string): Promise<User> {
-        return this.userRepository.findByIdOrFail(id);
-    }
-
-    async findById(id: string): Promise<User | null> {
-        return this.userRepository.findById(id);
+        transaction.afterCommit(() => this.userCache.invalidateList());
     }
 }
