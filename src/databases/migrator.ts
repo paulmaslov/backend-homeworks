@@ -35,7 +35,9 @@ export function createMigrator(sequelize: Sequelize): Umzug<object> {
 
             // каждая миграция выполняется в собственной транзакции, чтобы
             // упавшие миграции не оставляли схему в промежуточном состоянии
-            resolve: ({ name, path: filepath }) => {
+            resolve: ({ name: fileName, path: filepath }) => {
+                const name = fileName.replace(/\.js$/, ".ts");
+
                 if (!filepath) {
                     throw new Error(`Migration file not found for "${name}"`);
                 }
