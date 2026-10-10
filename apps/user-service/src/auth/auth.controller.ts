@@ -24,9 +24,10 @@ import { Request, Response } from "express";
 import type { StringValue } from "ms";
 import ms from "ms";
 
+import { ErrorResponseDto } from "@libs/common";
+
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
 import { AccessTokenResponseDto } from "@user-service/auth/dto/access-token-response.dto";
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
 import { CreateUserDto } from "@user-service/features/users/dto/create-user.dto";
 
 import { REFRESH_COOKIE, REFRESH_COOKIE_PATH } from "./auth.constants";

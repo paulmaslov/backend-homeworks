@@ -13,9 +13,10 @@ import {
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 
+import { ErrorResponseDto } from "@libs/common";
+
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
 import { BalanceResetService } from "@user-service/features/balance-reset/balance-reset.service";
 import { BalanceResetResponseDto } from "@user-service/features/balance-reset/dto/balance-reset-response.dto";
 

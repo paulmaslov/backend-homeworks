@@ -10,6 +10,7 @@
         "outDir": "./dist",
         "baseUrl": "./",
         "paths": {
+            "@libs/common": ["libs/common/src"],
             "@user-service/*": ["apps/user-service/src/*"]
         },
         "incremental": true,

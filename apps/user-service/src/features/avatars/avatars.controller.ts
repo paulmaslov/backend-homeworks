@@ -28,10 +28,11 @@ import {
     ApiUnsupportedMediaTypeResponse,
 } from "@nestjs/swagger";
 
+import { ErrorResponseDto } from "@libs/common";
+
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@user-service/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
 import { ImageFileValidationPipe } from "@user-service/common/pipes/image-file-validation.pipe";
 import { AvatarService } from "@user-service/features/avatars/avatar.service";
 import {

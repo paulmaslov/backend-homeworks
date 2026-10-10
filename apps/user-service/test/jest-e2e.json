@@ -7,6 +7,7 @@
         "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
+        "^@libs/common(|/.*)$": "<rootDir>/../../libs/common/src/$1",
         "^@user-service/(.*)$": "<rootDir>/src/$1"
     },
     "collectCoverage": true,

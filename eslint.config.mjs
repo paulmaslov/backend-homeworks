@@ -43,6 +43,7 @@ export default tseslint.config(
                         ["^\\u0000"],
                         ["^node:"],
                         ["^@?\\w"],
+                        ["^@libs(/.*|$)"],
                         ["^@user-service(/.*|$)"],
                         ["^"],
                         ["^\\."],

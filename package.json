@@ -135,10 +135,12 @@
         "coverageDirectory": "./coverage",
         "testEnvironment": "node",
         "moduleNameMapper": {
+            "^@libs/common(|/.*)$": "<rootDir>/libs/common/src/$1",
             "^@user-service/(.*)$": "<rootDir>/apps/user-service/src/$1"
         },
         "roots": [
-            "<rootDir>/apps/"
+            "<rootDir>/apps/",
+            "<rootDir>/libs/"
         ]
     },
     "lint-staged": {

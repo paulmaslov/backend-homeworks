@@ -21,10 +21,11 @@ import {
 } from "@nestjs/swagger";
 import { Response } from "express";
 
+import { ErrorResponseDto } from "@libs/common";
+
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@user-service/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
 import { BalanceResponseDto } from "@user-service/features/wallet/dto/balance-response.dto";
 import { DepositDto } from "@user-service/features/wallet/dto/deposit.dto";
 import { TransferDto } from "@user-service/features/wallet/dto/transfer.dto";

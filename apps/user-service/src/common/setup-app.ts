@@ -6,7 +6,7 @@ import {
 import { HttpAdapterHost } from "@nestjs/core";
 import cookieParser from "cookie-parser";
 
-import { AllExceptionsFilter } from "@user-service/common/filters/all-exceptions.filter";
+import { AllExceptionsFilter } from "@libs/common";
 
 export function setupApp(app: INestApplication): void {
     app.setGlobalPrefix("api");

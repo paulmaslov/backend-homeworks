@@ -4,7 +4,7 @@ import {
     ApiTooManyRequestsResponse,
 } from "@nestjs/swagger";
 
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
+import { ErrorResponseDto } from "@libs/common";
 
 export const ApiCommonResponses = () =>
     applyDecorators(

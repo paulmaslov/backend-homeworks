@@ -23,6 +23,8 @@ import {
 } from "@nestjs/swagger";
 import { Response } from "express";
 
+import { ErrorResponseDto } from "@libs/common";
+
 import {
     REFRESH_COOKIE,
     REFRESH_COOKIE_PATH,
@@ -31,7 +33,6 @@ import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-res
 import { CurrentUser } from "@user-service/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
 import { ApiPaginatedResponse } from "@user-service/common/decorators/api-paginated-response.decorator";
-import { ErrorResponseDto } from "@user-service/common/dto/error-response.dto";
 import { PaginatedDto } from "@user-service/common/dto/paginated.dto";
 import { AgeRangePipe } from "@user-service/common/pipes/age-range.pipe";
 import { ActiveUserService } from "@user-service/features/users/active-user.service";
