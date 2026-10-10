@@ -6,28 +6,30 @@
     "private": true,
     "license": "UNLICENSED",
     "scripts": {
-        "build": "nest build",
-        "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-        "start": "nest start",
-        "start:dev": "nest start --watch",
-        "start:debug": "nest start --debug --watch",
-        "start:prod": "node dist/main",
+        "build": "nest build --all",
+        "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
+        "start:user:dev": "nest start user-service --watch",
+        "start:user:debug": "nest start user-service --debug --watch",
+        "start:user:prod": "node dist/apps/user-service/apps/user-service/src/main",
+        "start:notification:dev": "nest start notification-service --watch",
+        "start:notification:debug": "nest start notification-service --debug --watch",
+        "start:notification:prod": "node dist/apps/notification-service/apps/notification-service/src/main",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix --max-warnings=0",
         "typecheck": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "node -r tsconfig-paths/register node_modules/.bin/jest --config ./test/jest-e2e.json",
+        "test:e2e": "node -r tsconfig-paths/register node_modules/.bin/jest --config ./apps/user-service/test/jest-e2e.json",
         "prepare": "husky",
         "pre-commit": "lint-staged",
-        "migration:up": "ts-node -r tsconfig-paths/register src/databases/migrate.ts up",
-        "migration:down": "ts-node -r tsconfig-paths/register src/databases/migrate.ts down",
-        "migration:pending": "ts-node -r tsconfig-paths/register src/databases/migrate.ts pending",
-        "migration:create": "ts-node -r tsconfig-paths/register src/databases/migrate.ts create --name",
-        "migration:up:prod": "node dist/databases/migrate.js up",
-        "keys:cleanup": "ts-node -r tsconfig-paths/register src/scripts/cleanup-idempotency-keys.ts",
-        "keys:cleanup:prod": "node dist/scripts/cleanup-idempotency-keys.js"
+        "migration:up": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts up",
+        "migration:down": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts down",
+        "migration:pending": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts pending",
+        "migration:create": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts create --name",
+        "migration:up:prod": "node dist/apps/user-service/apps/user-service/src/databases/migrate.js up",
+        "keys:cleanup": "ts-node -r tsconfig-paths/register apps/user-service/src/scripts/cleanup-idempotency-keys.ts",
+        "keys:cleanup:prod": "node dist/apps/user-service/apps/user-service/src/scripts/cleanup-idempotency-keys.js"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.1093.0",
@@ -114,26 +116,30 @@
             "json",
             "ts"
         ],
-        "rootDir": "src",
+        "rootDir": ".",
         "testRegex": ".*\\.spec\\.ts$",
         "transform": {
             "^.+\\.(t|j)s$": "ts-jest"
         },
         "collectCoverageFrom": [
-            "**/*.(t|j)s",
+            "apps/*/src/**/*.ts",
+            "libs/*/src/**/*.ts",
             "!**/*.spec.ts",
             "!**/*.module.ts",
             "!**/*.interface.ts",
-            "!main.ts",
-            "!databases/**",
-            "!scripts/**",
+            "!apps/*/src/main.ts",
+            "!apps/user-service/src/databases/**",
+            "!apps/user-service/src/scripts/**",
             "!**/testing/**"
         ],
-        "coverageDirectory": "../coverage",
+        "coverageDirectory": "./coverage",
         "testEnvironment": "node",
         "moduleNameMapper": {
-            "^@/(.*)$": "<rootDir>/$1"
-        }
+            "^@user-service/(.*)$": "<rootDir>/apps/user-service/src/$1"
+        },
+        "roots": [
+            "<rootDir>/apps/"
+        ]
     },
     "lint-staged": {
         "*.{js,jsx,ts,tsx}": [

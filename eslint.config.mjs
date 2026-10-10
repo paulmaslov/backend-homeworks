@@ -36,11 +36,27 @@ export default tseslint.config(
             "simple-import-sort": simpleImportSort,
         },
         rules: {
-            "simple-import-sort/imports": "error",
+            "simple-import-sort/imports": [
+                "error",
+                {
+                    groups: [
+                        ["^\\u0000"],
+                        ["^node:"],
+                        ["^@?\\w"],
+                        ["^@user-service(/.*|$)"],
+                        ["^"],
+                        ["^\\."],
+                    ],
+                },
+            ],
             "simple-import-sort/exports": "error",
             "no-relative-import-paths/no-relative-import-paths": [
                 "warn",
-                { allowSameFolder: true, rootDir: "src", prefix: "@" },
+                {
+                    allowSameFolder: true,
+                    rootDir: "apps/user-service/src",
+                    prefix: "@user-service",
+                },
             ],
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/no-floating-promises": "error",
@@ -66,10 +82,11 @@ export default tseslint.config(
         },
     },
     {
-        files: ["src/**/*.ts", "test/**/*.ts"],
+        files: ["apps/**/*.ts", "libs/**/*.ts"],
         plugins: { "import-x": importX },
         settings: {
             "import-x/resolver-next": [createTypeScriptImportResolver()],
+            "import-x/extensions": [".ts"],
         },
         rules: {
             "import-x/no-cycle": ["error", { maxDepth: Infinity }],
