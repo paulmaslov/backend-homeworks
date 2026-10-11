@@ -20,7 +20,7 @@ export default () => ({
         logging: process.env.DB_LOGGING === "true",
     },
     jwt: {
-        accessSecret: process.env.JWT_ACCESS_SECRET as string,
+        accessPrivateKey: process.env.JWT_ACCESS_PRIVATE_KEY as string,
         accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN as string,
         refreshExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN as string,
     },

@@ -1,4 +1,13 @@
+import { createPrivateKey } from "node:crypto";
+
 import * as Joi from "joi";
+
+const rsaPrivateKey = (value: string): string => {
+    if (createPrivateKey(value).asymmetricKeyType !== "rsa") {
+        throw new Error("must be an RSA private key");
+    }
+    return value;
+};
 
 export const envValidationSchema = Joi.object({
     // app
@@ -21,7 +30,7 @@ export const envValidationSchema = Joi.object({
     DB_LOGGING: Joi.boolean().default(true),
 
     // jwt
-    JWT_ACCESS_SECRET: Joi.string().required(),
+    JWT_ACCESS_PRIVATE_KEY: Joi.string().required().custom(rsaPrivateKey),
     JWT_ACCESS_EXPIRES_IN: Joi.string().default("15m"),
     REFRESH_TOKEN_EXPIRES_IN: Joi.string().default("7d"),
 

@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 
+import { JWT_ACCESS_ALGORITHM } from "@user-service/auth/auth.constants";
 import { UsersModule } from "@user-service/features/users/users.module";
 
 import { AuthController } from "./auth.controller";
@@ -18,8 +19,9 @@ import { AccessTokenStrategy } from "./strategies/access-token.strategy";
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
-                secret: config.get<string>("jwt.accessSecret"),
+                privateKey: config.getOrThrow<string>("jwt.accessPrivateKey"),
                 signOptions: {
+                    algorithm: JWT_ACCESS_ALGORITHM,
                     expiresIn: config.get<string>("jwt.accessExpiresIn"),
                 } as JwtSignOptions,
             }),

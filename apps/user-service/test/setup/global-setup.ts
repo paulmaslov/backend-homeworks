@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import * as AWS from "@aws-sdk/client-s3";
 import { MinioContainer, StartedMinioContainer } from "@testcontainers/minio";
 import {
@@ -134,7 +136,11 @@ export default async function globalSetup(): Promise<void> {
     // большой лимит, чтобы тесты не триггерили рейт лимитер
     process.env.RATE_LIMIT_REQUESTS = RATE_LIMIT_REQUESTS;
     process.env.RATE_LIMIT_PERIOD = RATE_LIMIT_PERIOD;
-    process.env.JWT_ACCESS_SECRET = "test_access_secret";
+    process.env.JWT_ACCESS_PRIVATE_KEY = generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+        privateKeyEncoding: { type: "pkcs8", format: "pem" },
+        publicKeyEncoding: { type: "spki", format: "pem" },
+    }).privateKey;
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.REFRESH_TOKEN_EXPIRES_IN = "7d";
 
