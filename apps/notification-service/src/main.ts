@@ -16,7 +16,7 @@ async function bootstrap() {
     await app.listen(port);
 
     new NestLogger("Bootstrap").log(
-        `Aplication is listening on port ${port} in ${config.getOrThrow<string>("nodeEnv")} mode`,
+        `Application is listening on port ${port} in ${config.getOrThrow<string>("nodeEnv")} mode`,
     );
 }
 
