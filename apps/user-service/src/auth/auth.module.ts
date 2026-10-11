@@ -3,7 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 
-import { JWT_ACCESS_ALGORITHM } from "@user-service/auth/auth.constants";
+import { JWT_ACCESS_ALGORITHM } from "@libs/common";
+
 import { UsersModule } from "@user-service/features/users/users.module";
 
 import { AuthController } from "./auth.controller";
