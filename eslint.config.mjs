@@ -44,13 +44,21 @@ export default tseslint.config(
                         ["^node:"],
                         ["^@?\\w"],
                         ["^@libs(/.*|$)"],
-                        ["^@user-service(/.*|$)"],
+                        ["^@(user-service|notification-service)(/.*|$)"],
                         ["^"],
                         ["^\\."],
                     ],
                 },
             ],
             "simple-import-sort/exports": "error",
+            "@typescript-eslint/no-explicit-any": "warn",
+            "@typescript-eslint/no-floating-promises": "error",
+            "@typescript-eslint/no-unsafe-argument": "warn",
+        },
+    },
+    {
+        files: ["apps/user-service/**/*.ts"],
+        rules: {
             "no-relative-import-paths/no-relative-import-paths": [
                 "warn",
                 {
@@ -59,9 +67,43 @@ export default tseslint.config(
                     prefix: "@user-service",
                 },
             ],
-            "@typescript-eslint/no-explicit-any": "warn",
-            "@typescript-eslint/no-floating-promises": "error",
-            "@typescript-eslint/no-unsafe-argument": "warn",
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["@notification-service/*"],
+                            message:
+                                "Приложения не импортируют друг друга, общий код - в libs",
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ["apps/notification-service/**/*.ts"],
+        rules: {
+            "no-relative-import-paths/no-relative-import-paths": [
+                "warn",
+                {
+                    allowSameFolder: true,
+                    rootDir: "apps/notification-service/src",
+                    prefix: "@notification-service",
+                },
+            ],
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["@user-service/*"],
+                            message:
+                                "Приложения не импортируют друг друга, общий код - в libs",
+                        },
+                    ],
+                },
+            ],
         },
     },
     {

@@ -11,6 +11,7 @@
         "baseUrl": "./",
         "paths": {
             "@libs/common": ["libs/common/src"],
+            "@notification-service/*": ["apps/notification-service/src/*"],
             "@user-service/*": ["apps/user-service/src/*"]
         },
         "incremental": true,
