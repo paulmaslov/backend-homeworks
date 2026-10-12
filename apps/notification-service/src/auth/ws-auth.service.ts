@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { JwtService, TokenExpiredError } from "@nestjs/jwt";
 import type { Socket } from "socket.io";
 
-import { VerifiedJwtPayload } from "@libs/common";
+import { VerifiedJwtPayload } from "@libs/contracts";
 
 import { WS_AUTH_ERROR_CODES } from "./auth.constants";
 import { WsUnauthorizedError } from "./ws-unauthorized.error";

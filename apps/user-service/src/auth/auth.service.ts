@@ -10,7 +10,7 @@ import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
-import { JwtPayload } from "@libs/common";
+import { JwtPayload } from "@libs/contracts";
 
 import { CreateUserDto } from "@user-service/features/users/dto/create-user.dto";
 import { User } from "@user-service/features/users/user.model";

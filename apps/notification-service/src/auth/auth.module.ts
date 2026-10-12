@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 
-import { JWT_ACCESS_ALGORITHM } from "@libs/common";
+import { JWT_ACCESS_ALGORITHM } from "@libs/contracts";
 
 import { WsAuthService } from "@notification-service/auth/ws-auth.service";
 
