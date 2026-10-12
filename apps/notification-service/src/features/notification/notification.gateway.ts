@@ -20,6 +20,7 @@ import { WsUnauthorizedError } from "@notification-service/auth/ws-unauthorized.
 import {
     ClientToServerEvents,
     ServerToClientEvents,
+    UserNotification,
 } from "@notification-service/features/notification/notification.events";
 
 const userRoom = (userId: string): string => `user:${userId}`;
@@ -103,6 +104,15 @@ export class NotificationGateway
         this.logger.info(
             { clientId: client.id, userId: client.data.userId },
             "Client disconnected",
+        );
+    }
+
+    sendNotification(userId: string, notification: UserNotification): void {
+        this.server.to(userRoom(userId)).emit("notification", notification);
+
+        this.logger.debug(
+            { userId, notificationId: notification.id },
+            "Notification sent",
         );
     }
 
