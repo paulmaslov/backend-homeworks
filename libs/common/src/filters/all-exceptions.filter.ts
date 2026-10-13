@@ -13,7 +13,6 @@ const MIN_SERVER_ERROR_STATUS: number = HttpStatus.INTERNAL_SERVER_ERROR;
 
 // приводим все ошибки к одному виду
 // 500-ки логируются и отдаются клиенту без внутренних деталей
-// TODO: поресерчить, как обрабатывать ошибки веб сокетов и кафки
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
     private readonly logger = new Logger(AllExceptionsFilter.name);
