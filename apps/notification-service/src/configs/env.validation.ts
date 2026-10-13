@@ -26,6 +26,13 @@ export const envValidationSchema = Joi.object({
     // адреса брокеров идут через запятую: host1:9092,host2:9092
     KAFKA_BROKERS: Joi.string().required(),
 
+    // mongodb
+    MONGO_HOST: Joi.string().required(),
+    MONGO_PORT: Joi.number().required(),
+    MONGO_USER: Joi.string().required(),
+    MONGO_PASSWORD: Joi.string().required(),
+    MONGO_DB: Joi.string().required(),
+
     // logging
     LOG_LEVEL: Joi.string()
         .valid("trace", "debug", "info", "warn", "error", "fatal", "silent")
