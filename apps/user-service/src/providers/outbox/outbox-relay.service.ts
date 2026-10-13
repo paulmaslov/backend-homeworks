@@ -106,8 +106,6 @@ export class OutboxRelayService
                     "Outbox relay failed to publish events",
                 );
 
-                await this.resetKafkaClient();
-
                 // новые сообщения не сокращают бэкофф, иначе каждый перевод
                 // запускал бы еще одну попытку достучаться до лежащей kafka
                 if (this.running) {
@@ -165,18 +163,6 @@ export class OutboxRelayService
         }
 
         return events.length;
-    }
-
-    // обход бага Nest 11: ClientKafka запоминает и неудачное подключение и
-    // без close() больше не подключается, даже когда kafka поднимется.
-    // в Nest 12 исправлено (nestjs/nest#17816)
-    // TODO: убрать после перехода на nest 12
-    private async resetKafkaClient(): Promise<void> {
-        try {
-            await this.kafka.close();
-        } catch (error) {
-            this.logger.warn({ err: error }, "Failed to close kafka client");
-        }
     }
 
     private backoff(ms: number): Promise<void> {
