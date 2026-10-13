@@ -11,11 +11,13 @@ import { TransferRepository } from "@user-service/features/wallet/transfer.repos
 import { ITransferRepository } from "@user-service/features/wallet/transfer.repository.interface";
 import { WalletController } from "@user-service/features/wallet/wallet.controller";
 import { WalletService } from "@user-service/features/wallet/wallet.service";
+import { OutboxModule } from "@user-service/providers/outbox/outbox.module";
 
 @Module({
     imports: [
         SequelizeModule.forFeature([Transfer, IdempotencyKey]),
         UsersModule,
+        OutboxModule,
     ],
     controllers: [WalletController],
     providers: [

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
     BadRequestException,
     ConflictException,
@@ -10,6 +12,12 @@ import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { Transaction, UniqueConstraintError } from "sequelize";
 import { Sequelize } from "sequelize-typescript";
 
+import {
+    KAFKA_HEADERS,
+    TransferCompletedEvent,
+    WALLET_TOPICS,
+} from "@libs/contracts";
+
 import { IUserRepository } from "@user-service/features/users/user.repository.interface";
 import { rethrowCheckViolation } from "@user-service/features/wallet/check-balance-constraints-violation";
 import { BalanceResponseDto } from "@user-service/features/wallet/dto/balance-response.dto";
@@ -21,6 +29,7 @@ import {
     IIdempotencyRepository,
 } from "@user-service/features/wallet/idempotency.repository.interface";
 import { buildRequestHash } from "@user-service/features/wallet/request-hash";
+import { Transfer } from "@user-service/features/wallet/transfer.model";
 import {
     CreateTransferData,
     ITransferRepository,
@@ -30,6 +39,7 @@ import {
     WALLET_ERROR_CODES,
     WalletEndpoint,
 } from "@user-service/features/wallet/wallet.constants";
+import { IOutboxRepository } from "@user-service/providers/outbox/outbox.repository.interface";
 
 export interface WalletOperationResult {
     readonly transfer: TransferResponseDto;
@@ -42,6 +52,7 @@ export class WalletService {
         private readonly userRepository: IUserRepository,
         private readonly transferRepository: ITransferRepository,
         private readonly idempotencyRepository: IIdempotencyRepository,
+        private readonly outboxRepository: IOutboxRepository,
         @InjectConnection() private readonly sequelize: Sequelize,
 
         @InjectPinoLogger(WalletService.name)
@@ -117,6 +128,7 @@ export class WalletService {
         fromUserId: string,
         dto: TransferDto,
         idempotencyKey: string,
+        requestId: string,
     ): Promise<WalletOperationResult> {
         if (fromUserId === dto.toUserId) {
             this.logger.debug({ fromUserId }, "Self transfer rejected");
@@ -191,6 +203,13 @@ export class WalletService {
             },
             (transaction) =>
                 this.lockParticipants(fromUserId, dto.toUserId, transaction),
+            (transfer, transaction) =>
+                this.recordTransferCompleted(
+                    transfer,
+                    fromUserId,
+                    requestId,
+                    transaction,
+                ),
         );
     }
 
@@ -198,6 +217,10 @@ export class WalletService {
         keyData: CreateIdempotencyKeyData,
         operation: (transaction: Transaction) => Promise<CreateTransferData>,
         lock?: (transaction: Transaction) => Promise<void>,
+        onCreated?: (
+            transfer: Transfer,
+            transaction: Transaction,
+        ) => Promise<void>,
     ): Promise<WalletOperationResult> {
         try {
             const transfer = await this.sequelize.transaction(
@@ -225,6 +248,10 @@ export class WalletService {
                         transferData,
                         transaction,
                     );
+
+                    if (onCreated) {
+                        await onCreated(created, transaction);
+                    }
 
                     await this.idempotencyRepository.attachTransfer(
                         record.id,
@@ -263,6 +290,37 @@ export class WalletService {
 
             rethrowCheckViolation(error);
         }
+    }
+
+    // событие пишется в outbox в той же транзакции, что и перевод
+    private async recordTransferCompleted(
+        transfer: Transfer,
+        fromUserId: string,
+        requestId: string,
+        transaction: Transaction,
+    ): Promise<void> {
+        const eventId = randomUUID();
+        const event: TransferCompletedEvent = {
+            eventId,
+            transferId: transfer.id,
+            // у модели fromUserId nullable из-за пополнений, у перевода
+            // отправитель есть всегда
+            fromUserId,
+            toUserId: transfer.toUserId,
+            amount: transfer.amount,
+            occurredAt: transfer.createdAt.toISOString(),
+        };
+
+        await this.outboxRepository.add(
+            {
+                id: eventId,
+                topic: WALLET_TOPICS.TRANSFER_COMPLETED,
+                key: transfer.id,
+                payload: event,
+                headers: { [KAFKA_HEADERS.REQUEST_ID]: requestId },
+            },
+            transaction,
+        );
     }
 
     // блокировки делаем всегда первой операцией и всегда в одном порядке,

@@ -26,6 +26,7 @@ import { ErrorResponseDto } from "@libs/common";
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
 import { CurrentUser } from "@user-service/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
+import { RequestId } from "@user-service/common/decorators/request-id.decorator";
 import { BalanceResponseDto } from "@user-service/features/wallet/dto/balance-response.dto";
 import { DepositDto } from "@user-service/features/wallet/dto/deposit.dto";
 import { TransferDto } from "@user-service/features/wallet/dto/transfer.dto";
@@ -111,6 +112,7 @@ export class WalletController {
     async transfer(
         @CurrentUser("userId") userId: string,
         @IdempotencyKeyHeader() idempotencyKey: string,
+        @RequestId() requestId: string,
         @Body() dto: TransferDto,
         @Res({ passthrough: true }) res: Response,
     ): Promise<TransferResponseDto> {
@@ -118,6 +120,7 @@ export class WalletController {
             userId,
             dto,
             idempotencyKey,
+            requestId,
         );
 
         if (replayed) {
