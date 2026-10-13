@@ -29,7 +29,7 @@ export class NotificationController {
         private readonly logger: PinoLogger,
     ) {}
 
-    @EventPattern(WALLET_TOPICS.TRANSFER_COMPLETED)
+    @EventPattern<string>(WALLET_TOPICS.TRANSFER_COMPLETED)
     @UsePipes(
         new ValidationPipe({
             whitelist: true,

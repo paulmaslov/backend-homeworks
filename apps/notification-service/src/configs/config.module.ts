@@ -11,7 +11,9 @@ import { envValidationSchema } from "./env.validation";
             load: [appConfig],
             validationSchema: envValidationSchema,
             validationOptions: {
-                abortEarly: false, // показываем сразу все ошибки, а не только первую
+                libraryOptions: {
+                    abortEarly: false, // показываем сразу все ошибки, а не только первую
+                },
             },
         }),
     ],

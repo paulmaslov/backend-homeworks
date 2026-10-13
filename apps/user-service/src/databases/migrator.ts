@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Sequelize } from "sequelize";
-import { MigrationFn, SequelizeStorage, Umzug } from "umzug";
+import { SequelizeStorage, Umzug } from "umzug";
 
 import appConfig from "@user-service/configs/app.config";
 import { MigrationContext } from "@user-service/databases/migration.context";
@@ -14,11 +14,6 @@ const MIGRATIONS_FOLDER = path.join(__dirname, "migrations");
 const MIGRATIONS_GLOB = path
     .join(MIGRATIONS_FOLDER, `*${EXTENSION}`)
     .replace(/\\/g, "/");
-
-interface MigrationModule {
-    up: MigrationFn<MigrationContext>;
-    down: MigrationFn<MigrationContext>;
-}
 
 export function createSequelize(): Sequelize {
     return new Sequelize({
@@ -35,26 +30,22 @@ export function createMigrator(sequelize: Sequelize): Umzug<object> {
 
             // каждая миграция выполняется в собственной транзакции, чтобы
             // упавшие миграции не оставляли схему в промежуточном состоянии
-            resolve: ({ name: fileName, path: filepath }) => {
-                const name = fileName.replace(/\.js$/, ".ts");
+            resolve: (params) => {
+                const name = params.name.replace(/\.js$/, ".ts");
 
-                if (!filepath) {
-                    throw new Error(`Migration file not found for "${name}"`);
-                }
+                const migration = Umzug.defaultResolver(params);
 
                 const run = async (direction: "up" | "down"): Promise<void> => {
-                    const migration = (await import(
-                        filepath
-                    )) as MigrationModule;
-
                     await sequelize.transaction(async (transaction) => {
-                        await migration[direction]({
+                        const context: MigrationContext = {
+                            queryInterface: sequelize.getQueryInterface(),
+                            transaction,
+                        };
+
+                        await migration[direction]?.({
                             name,
-                            path: filepath,
-                            context: {
-                                queryInterface: sequelize.getQueryInterface(),
-                                transaction,
-                            },
+                            path: params.path,
+                            context,
                         });
                     });
                 };
