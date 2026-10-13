@@ -1,9 +1,21 @@
+export const NOTIFICATION_TYPES = {
+    TRANSFER_SENT: "transfer.sent",
+    TRANSFER_RECEIVED: "transfer.received",
+} as const;
+
+export type NotificationType =
+    (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
+
 // назвали так, чтобы не конфликтовать с web notification api
 export interface UserNotification {
-    // TODO: подключить монгу, id и createdAt - задел на будущее для хранения в бд
+    // TODO: подключить монгу, id и occurredAt - задел на будущее для хранения в бд
     id: string;
-    createdAt: string;
-    message: string;
+    type: NotificationType;
+    transferId: string;
+    fromUserId: string;
+    toUserId: string;
+    amount: string;
+    occurredAt: string;
 }
 
 export interface ClientToServerEvents {

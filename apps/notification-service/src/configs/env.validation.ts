@@ -22,6 +22,10 @@ export const envValidationSchema = Joi.object({
     // jwt
     JWT_ACCESS_PUBLIC_KEY: Joi.string().required().custom(rsaPublicKey),
 
+    // kafka
+    // адреса брокеров идут через запятую: host1:9092,host2:9092
+    KAFKA_BROKERS: Joi.string().required(),
+
     // logging
     LOG_LEVEL: Joi.string()
         .valid("trace", "debug", "info", "warn", "error", "fatal", "silent")

@@ -1,6 +1,8 @@
 import { Logger as NestLogger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import { MicroserviceOptions, Transport } from "@nestjs/microservices";
+import { Partitioners } from "kafkajs";
 import { Logger } from "nestjs-pino";
 
 import { setupHttpApp } from "@libs/common";
@@ -14,10 +16,30 @@ async function bootstrap() {
 
     setupHttpApp(app);
 
+    app.connectMicroservice<MicroserviceOptions>({
+        transport: Transport.KAFKA,
+        options: {
+            client: {
+                clientId: "notification-service",
+                brokers: config.getOrThrow<string[]>("kafka.brokers"),
+            },
+            consumer: { groupId: "notification-service" },
+            // читаем партицию сначала, если нет сохраненного офсета,
+            // чтобы не пропустить сообщения, пришедшие до первого коммита
+            subscribe: { fromBeginning: true },
+            // producer сервера нужен для записи в dlq
+            producer: { createPartitioner: Partitioners.DefaultPartitioner },
+        },
+    });
+
     app.enableShutdownHooks();
 
     const port = config.getOrThrow<number>("port");
     await app.listen(port);
+
+    // запускаем только после запуска websocket gateway,
+    // тк консюмер использует его при чтении из кафки
+    await app.startAllMicroservices();
 
     new NestLogger("Bootstrap").log(
         `Application is listening on port ${port} in ${config.getOrThrow<string>("nodeEnv")} mode`,

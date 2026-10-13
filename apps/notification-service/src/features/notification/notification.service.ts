@@ -1,8 +1,11 @@
-import { randomUUID } from "node:crypto";
-
 import { Injectable } from "@nestjs/common";
 
-import { UserNotification } from "@notification-service/features/notification/notification.events";
+import { TransferCompletedEvent } from "@libs/contracts";
+
+import {
+    NOTIFICATION_TYPES,
+    UserNotification,
+} from "@notification-service/features/notification/notification.events";
 
 import { NotificationGateway } from "./notification.gateway";
 
@@ -10,15 +13,23 @@ import { NotificationGateway } from "./notification.gateway";
 export class NotificationService {
     constructor(private readonly gateway: NotificationGateway) {}
 
-    notify(userId: string, message: string): UserNotification {
-        const notification: UserNotification = {
-            id: randomUUID(),
-            createdAt: new Date().toISOString(),
-            message,
+    notifyTransferCompleted(event: TransferCompletedEvent): void {
+        const transfer: Omit<UserNotification, "type"> = {
+            id: event.eventId,
+            transferId: event.transferId,
+            fromUserId: event.fromUserId,
+            toUserId: event.toUserId,
+            amount: event.amount,
+            occurredAt: event.occurredAt,
         };
 
-        this.gateway.sendNotification(userId, notification);
-
-        return notification;
+        this.gateway.sendNotification(event.fromUserId, {
+            ...transfer,
+            type: NOTIFICATION_TYPES.TRANSFER_SENT,
+        });
+        this.gateway.sendNotification(event.toUserId, {
+            ...transfer,
+            type: NOTIFICATION_TYPES.TRANSFER_RECEIVED,
+        });
     }
 }

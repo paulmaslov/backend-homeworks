@@ -4,6 +4,11 @@ export default () => ({
     jwt: {
         accessPublicKey: process.env.JWT_ACCESS_PUBLIC_KEY as string,
     },
+    kafka: {
+        brokers: (process.env.KAFKA_BROKERS as string)
+            .split(",")
+            .map((broker) => broker.trim()),
+    },
     logging: {
         level: process.env.LOG_LEVEL as string,
         pretty: process.env.LOG_PRETTY === "true",
