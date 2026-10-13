@@ -17,3 +17,8 @@ export const BALANCE_RESET_INTERVAL = "10m";
 // маленький батч, чтобы e2e реально проходил цикл, а не укладывался в одну итерацию
 export const BALANCE_RESET_BATCH_SIZE = "2";
 export const BALANCE_RESET_DEDUP_TTL = "5m";
+
+export const KAFKA_BROKERS = "localhost:9092";
+export const OUTBOX_RELAY_ENABLED = "false";
+export const OUTBOX_POLL_INTERVAL = "500ms";
+export const OUTBOX_BATCH_SIZE = "100";

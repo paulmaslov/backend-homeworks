@@ -49,6 +49,16 @@ export default () => ({
         batchSize: parseInt(process.env.BALANCE_RESET_BATCH_SIZE as string, 10),
         dedupTtlMs: ms(process.env.BALANCE_RESET_DEDUP_TTL as StringValue),
     },
+    kafka: {
+        brokers: (process.env.KAFKA_BROKERS as string)
+            .split(",")
+            .map((broker) => broker.trim()),
+    },
+    outbox: {
+        relayEnabled: process.env.OUTBOX_RELAY_ENABLED === "true",
+        pollIntervalMs: ms(process.env.OUTBOX_POLL_INTERVAL as StringValue),
+        batchSize: parseInt(process.env.OUTBOX_BATCH_SIZE as string, 10),
+    },
     logging: {
         level: process.env.LOG_LEVEL as string,
         pretty: process.env.LOG_PRETTY === "true",

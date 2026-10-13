@@ -29,6 +29,10 @@ export class OutboxEvent extends BaseModel<
     @Column({ type: DataType.JSONB, allowNull: false })
     declare headers: Record<string, string>;
 
+    // до какого момента событие арендовано relay, null - свободно
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare leasedUntil: Date | null;
+
     @CreatedAt
     declare createdAt: Date;
 }

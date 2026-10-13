@@ -65,6 +65,17 @@ export const envValidationSchema = Joi.object({
         .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
         .default("5m"),
 
+    // kafka
+    // адреса брокеров идут через запятую: host1:9092,host2:9092
+    KAFKA_BROKERS: Joi.string().required(),
+
+    // outbox
+    OUTBOX_RELAY_ENABLED: Joi.boolean().default(true),
+    OUTBOX_POLL_INTERVAL: Joi.string()
+        .pattern(/^\d+(ms|s|m|h|d|w|y)$/)
+        .default("500ms"),
+    OUTBOX_BATCH_SIZE: Joi.number().min(1).default(100),
+
     // logging
     LOG_LEVEL: Joi.string()
         .valid("trace", "debug", "info", "warn", "error", "fatal", "silent")
