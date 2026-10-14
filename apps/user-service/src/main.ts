@@ -49,8 +49,10 @@ async function bootstrap() {
 
 void bootstrap().catch((error: unknown) => {
     new NestLogger("Bootstrap").fatal(
+        { err: error },
         "Application failed to start",
-        error instanceof Error ? error.stack : String(error),
     );
-    process.exitCode = 1;
+    // открытые соединения (mongo, kafka, redis) держат процесс живым:
+    // без явного выхода сервис зависнет, не слушая порт
+    process.exit(1);
 });
