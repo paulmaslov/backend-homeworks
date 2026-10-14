@@ -18,12 +18,14 @@ import { KAFKA_HEADERS, WALLET_TOPICS } from "@libs/contracts";
 import { KafkaDeadLetterFilter } from "@notification-service/common/filters/kafka-dead-letter.filter";
 import { TransferCompletedEventDto } from "@notification-service/features/notification/dto/transfer-completed-event.dto";
 import { NotificationService } from "@notification-service/features/notification/notification.service";
+import { MongoRetry } from "@notification-service/providers/databases/mongodb/mongo-retry";
 
 @Controller()
 @UseFilters(KafkaDeadLetterFilter)
 export class NotificationController {
     constructor(
         private readonly notificationService: NotificationService,
+        private readonly mongoRetry: MongoRetry,
 
         @InjectPinoLogger(NotificationController.name)
         private readonly logger: PinoLogger,
@@ -57,7 +59,11 @@ export class NotificationController {
             "Transfer completed event received",
         );
 
-        await this.notificationService.notifyTransferCompleted(event);
+        // пока монга недоступна, сообщение ждет здесь, а не уходит в dlq
+        await this.mongoRetry.whileUnavailable(
+            () => this.notificationService.notifyTransferCompleted(event),
+            context.getHeartbeat(),
+        );
     }
 }
 

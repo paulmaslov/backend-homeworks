@@ -1,7 +1,12 @@
 import { ArgumentsHost, Catch, RpcExceptionFilter } from "@nestjs/common";
 import { KafkaContext, RpcException } from "@nestjs/microservices";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
-import { from, Observable } from "rxjs";
+import { from, Observable, throwError } from "rxjs";
+
+import {
+    isMongoUnavailable,
+    MongoWaitAbortedError,
+} from "@notification-service/providers/databases/mongodb/mongo-retry";
 
 export const DEAD_LETTER_HEADERS = {
     ERROR: "x-dead-letter-error",
@@ -22,6 +27,14 @@ export class KafkaDeadLetterFilter implements RpcExceptionFilter<unknown> {
     ) {}
 
     catch(exception: unknown, host: ArgumentsHost): Observable<void> {
+        // если монга недоступна или сервис остановлен - не кладем в dlq
+        if (
+            isMongoUnavailable(exception) ||
+            exception instanceof MongoWaitAbortedError
+        ) {
+            return throwError(() => exception);
+        }
+
         const context = host.switchToRpc().getContext<KafkaContext>();
 
         return from(this.moveToDeadLetter(exception, context));

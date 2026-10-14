@@ -10,6 +10,7 @@ import {
     NotificationRecordSchema,
 } from "@notification-service/features/notification/notification.schema";
 import { NotificationService } from "@notification-service/features/notification/notification.service";
+import { MongoRetry } from "@notification-service/providers/databases/mongodb/mongo-retry";
 
 import { NotificationGateway } from "./notification.gateway";
 
@@ -25,6 +26,7 @@ import { NotificationGateway } from "./notification.gateway";
         NotificationGateway,
         NotificationService,
         { provide: INotificationRepository, useClass: NotificationRepository },
+        MongoRetry,
     ],
 })
 export class NotificationModule {}
