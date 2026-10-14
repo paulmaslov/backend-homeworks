@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { JWT_ACCESS_ALGORITHM } from "@libs/contracts";
 
+import { AccessTokenVerifier } from "@notification-service/auth/access-token.verifier";
 import { WsAuthService } from "@notification-service/auth/ws-auth.service";
 
 @Module({
@@ -16,7 +17,7 @@ import { WsAuthService } from "@notification-service/auth/ws-auth.service";
             }),
         }),
     ],
-    providers: [WsAuthService],
-    exports: [WsAuthService],
+    providers: [AccessTokenVerifier, WsAuthService],
+    exports: [AccessTokenVerifier, WsAuthService],
 })
 export class AuthModule {}

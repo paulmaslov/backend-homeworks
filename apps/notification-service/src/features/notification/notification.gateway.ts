@@ -12,11 +12,9 @@ import {
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 
-import {
-    AuthenticatedUser,
-    WsAuthService,
-} from "@notification-service/auth/ws-auth.service";
-import { WsUnauthorizedError } from "@notification-service/auth/ws-unauthorized.error";
+import { AccessTokenError } from "@notification-service/auth/access-token.error";
+import { AuthenticatedUser } from "@notification-service/auth/access-token.verifier";
+import { WsAuthService } from "@notification-service/auth/ws-auth.service";
 import {
     ClientToServerEvents,
     ServerToClientEvents,
@@ -57,7 +55,7 @@ export class NotificationGateway
                 socket.data = this.wsAuth.authenticate(socket.handshake);
                 next();
             } catch (error) {
-                if (error instanceof WsUnauthorizedError) {
+                if (error instanceof AccessTokenError) {
                     this.logger.warn(
                         { clientId: socket.id, code: error.data.code },
                         "Connection rejected",
