@@ -1,9 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { Params } from "nestjs-pino";
 
-import { buildLoggerParams } from "@libs/common";
-
-const DOCS_PATH = "/api/v1/docs";
+import { buildLoggerParams, SWAGGER_PATH } from "@libs/common";
 
 // не выносить в отдельный модуль - приложение не запустится: LoggerModule
 // раздаёт логгеры один раз, когда все остальные модули уже подключены
@@ -21,7 +19,8 @@ export function buildLoggerOptions(config: ConfigService): Params {
 
             // исключаем swagger из логов
             autoLogging: {
-                ignore: (req) => req.url?.startsWith(DOCS_PATH) ?? false,
+                ignore: (req) =>
+                    req.url?.startsWith(`/${SWAGGER_PATH}`) ?? false,
             },
         },
     );

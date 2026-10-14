@@ -1,8 +1,9 @@
 import { Logger as NestLogger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
+
+import { setupSwagger } from "@libs/common";
 
 import { setupApp } from "@user-service/common/setup-app";
 
@@ -21,21 +22,11 @@ async function bootstrap() {
         credentials: true,
     });
 
-    const swaggerConfig = new DocumentBuilder()
-        .setTitle("Backend homeworks API")
-        .setDescription("Registration, authentication and user management")
-        .setVersion("1.0")
-        .addBearerAuth({
-            type: "http",
-            scheme: "bearer",
-            bearerFormat: "JWT",
-            description:
-                "Access token issued by POST /auth/login or /auth/register",
-        })
-        .addCookieAuth(REFRESH_COOKIE)
-        .build();
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup("api/v1/docs", app, document);
+    setupSwagger(app, {
+        title: "Backend homeworks API",
+        description: "Registration, authentication and user management",
+        extend: (builder) => builder.addCookieAuth(REFRESH_COOKIE),
+    });
 
     app.enableShutdownHooks();
 
