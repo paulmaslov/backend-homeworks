@@ -28,6 +28,11 @@
         "migration:user:pending": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts pending",
         "migration:user:create": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts create --name",
         "migration:user:up:prod": "node dist/apps/user-service/apps/user-service/src/databases/migrate.js up",
+        "migration:notification:up": "ts-node -r tsconfig-paths/register apps/notification-service/src/databases/migrate.ts up",
+        "migration:notification:down": "ts-node -r tsconfig-paths/register apps/notification-service/src/databases/migrate.ts down",
+        "migration:notification:pending": "ts-node -r tsconfig-paths/register apps/notification-service/src/databases/migrate.ts pending",
+        "migration:notification:create": "ts-node -r tsconfig-paths/register apps/notification-service/src/databases/migrate.ts create --name",
+        "migration:notification:up:prod": "node dist/apps/notification-service/apps/notification-service/src/databases/migrate.js up",
         "keys:cleanup": "ts-node -r tsconfig-paths/register apps/user-service/src/scripts/cleanup-idempotency-keys.ts",
         "keys:cleanup:prod": "node dist/apps/user-service/apps/user-service/src/scripts/cleanup-idempotency-keys.js"
     },

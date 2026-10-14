@@ -2,15 +2,11 @@ import { Logger, Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
 
-export interface MongoConfig {
-    host: string;
-    port: number;
-    user: string;
-    password: string;
-    dbName: string;
-}
-
-const SERVER_SELECTION_TIMEOUT_MS = 5_000;
+import {
+    buildMongoClientOptions,
+    buildMongoUri,
+    MongoConfig,
+} from "@notification-service/providers/databases/mongodb/mongo-options";
 
 @Module({
     imports: [
@@ -21,11 +17,11 @@ const SERVER_SELECTION_TIMEOUT_MS = 5_000;
                 const logger = new Logger("MongoDB");
 
                 return {
-                    uri: `mongodb://${mongo.host}:${mongo.port}`,
+                    uri: buildMongoUri(mongo),
                     dbName: mongo.dbName,
-                    auth: { username: mongo.user, password: mongo.password },
-                    authSource: "admin",
-                    serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+                    ...buildMongoClientOptions(mongo),
+                    // индексы создают миграции, а не mongoose при старте
+                    autoIndex: false,
                     onConnectionCreate: (connection) => {
                         connection.on("connected", () =>
                             logger.log("Connected"),
