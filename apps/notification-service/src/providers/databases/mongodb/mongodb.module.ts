@@ -8,6 +8,10 @@ import {
     MongoConfig,
 } from "@notification-service/providers/databases/mongodb/mongo-options";
 
+// таймаут запроса к монге в открытом соединении - по умолчанию в драйвере
+// его нет, поэтому устанавливаем
+const SOCKET_TIMEOUT_MS = 10_000;
+
 @Module({
     imports: [
         MongooseModule.forRootAsync({
@@ -20,6 +24,7 @@ import {
                     uri: buildMongoUri(mongo),
                     dbName: mongo.dbName,
                     ...buildMongoClientOptions(mongo),
+                    socketTimeoutMS: SOCKET_TIMEOUT_MS,
                     // индексы создают миграции, а не mongoose при старте
                     autoIndex: false,
                     onConnectionCreate: (connection) => {
