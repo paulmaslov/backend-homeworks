@@ -7,7 +7,7 @@ import {
 import { PinoLogger } from "nestjs-pino";
 import { Observable } from "rxjs";
 
-import { CurrentUserData } from "@user-service/common/interfaces/current-user.interface";
+import { CurrentUserData } from "@libs/common";
 
 // customProps кладёт userId только в строку завершения запроса.
 // здесь дописываем его в контекст, чтобы он был во всех строках,

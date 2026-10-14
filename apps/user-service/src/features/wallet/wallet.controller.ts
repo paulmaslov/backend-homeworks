@@ -21,10 +21,9 @@ import {
 } from "@nestjs/swagger";
 import { Response } from "express";
 
-import { ErrorResponseDto } from "@libs/common";
+import { CurrentUser, ErrorResponseDto } from "@libs/common";
 
 import { ApiCommonResponses } from "@user-service/auth/decorators/api-common-responses.decorator";
-import { CurrentUser } from "@user-service/auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "@user-service/auth/guards/access-token.guard";
 import { RequestId } from "@user-service/common/decorators/request-id.decorator";
 import { BalanceResponseDto } from "@user-service/features/wallet/dto/balance-response.dto";
