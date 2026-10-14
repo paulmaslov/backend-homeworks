@@ -44,10 +44,10 @@ export class NotificationController {
                 ),
         }),
     )
-    handleTransferCompleted(
+    async handleTransferCompleted(
         @Payload() event: TransferCompletedEventDto,
         @Ctx() context: KafkaContext,
-    ): void {
+    ): Promise<void> {
         this.logger.info(
             {
                 eventId: event.eventId,
@@ -57,7 +57,7 @@ export class NotificationController {
             "Transfer completed event received",
         );
 
-        this.notificationService.notifyTransferCompleted(event);
+        await this.notificationService.notifyTransferCompleted(event);
     }
 }
 

@@ -8,7 +8,6 @@ export type NotificationType =
 
 // назвали так, чтобы не конфликтовать с web notification api
 export interface UserNotification {
-    // TODO: подключить монгу, id и occurredAt - задел на будущее для хранения в бд
     id: string;
     type: NotificationType;
     transferId: string;
