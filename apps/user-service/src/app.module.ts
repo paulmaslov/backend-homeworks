@@ -11,6 +11,7 @@ import { AccessTokenModule } from "@libs/common";
 import { AvatarsModule } from "@user-service/features/avatars/avatars.module";
 import { BalanceResetModule } from "@user-service/features/balance-reset/balance-reset.module";
 import { WalletModule } from "@user-service/features/wallet/wallet.module";
+import { HealthModule } from "@user-service/health/health.module";
 import { buildLoggerOptions } from "@user-service/providers/logger/logger-options";
 import { OutboxModule } from "@user-service/providers/outbox/outbox.module";
 import { QueuesModule } from "@user-service/providers/queues/queue.module";
@@ -54,6 +55,7 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
         QueuesModule,
         OutboxModule,
         BalanceResetModule,
+        HealthModule,
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({

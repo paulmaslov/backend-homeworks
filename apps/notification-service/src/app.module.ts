@@ -6,6 +6,7 @@ import { AccessTokenModule } from "@libs/common";
 
 import { ConfigsModule } from "@notification-service/configs/config.module";
 import { NotificationModule } from "@notification-service/features/notification/notification.module";
+import { HealthModule } from "@notification-service/health/health.module";
 import { MongodbModule } from "@notification-service/providers/databases/mongodb/mongodb.module";
 import { buildLoggerOptions } from "@notification-service/providers/logger/logger-options";
 
@@ -25,6 +26,7 @@ import { buildLoggerOptions } from "@notification-service/providers/logger/logge
         }),
         MongodbModule,
         NotificationModule,
+        HealthModule,
     ],
 })
 export class AppModule {}
