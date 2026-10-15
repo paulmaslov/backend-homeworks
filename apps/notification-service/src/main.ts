@@ -38,7 +38,7 @@ async function bootstrap() {
         },
     });
 
-    app.enableShutdownHooks();
+    app.enableShutdownHooks([], { useProcessExit: true });
 
     const port = config.getOrThrow<number>("port");
     await app.listen(port);

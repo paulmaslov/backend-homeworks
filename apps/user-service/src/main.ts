@@ -28,7 +28,7 @@ async function bootstrap() {
         extend: (builder) => builder.addCookieAuth(REFRESH_COOKIE),
     });
 
-    app.enableShutdownHooks();
+    app.enableShutdownHooks([], { useProcessExit: true });
 
     const port = config.getOrThrow<number>("port");
     await app.listen(port);
