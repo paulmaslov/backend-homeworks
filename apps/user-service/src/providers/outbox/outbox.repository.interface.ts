@@ -20,12 +20,26 @@ export interface ClaimedOutboxEvent {
     readonly key: string;
     readonly payload: object;
     readonly headers: Record<string, string>;
+    readonly attempts: number;
 }
 
 export interface OutboxStats {
     readonly pending: number;
     // сколько секунд ждет самое старое событие, 0 - если очередь пуста
     readonly oldestAgeSeconds: number;
+    // сколько событий отложено после всех попыток и ждут действий человека
+    readonly failed: number;
+}
+
+export interface RecordOutboxFailureParams {
+    readonly id: string;
+    readonly attempts: number;
+    readonly lastError: string;
+}
+
+export interface ScheduleOutboxRetryParams extends RecordOutboxFailureParams {
+    // через сколько событие можно взять снова
+    readonly retryInMs: number;
 }
 
 export abstract class IOutboxRepository {
@@ -43,6 +57,10 @@ export abstract class IOutboxRepository {
     abstract deletePublished(ids: string[]): Promise<void>;
 
     abstract release(ids: string[]): Promise<void>;
+
+    abstract scheduleRetry(params: ScheduleOutboxRetryParams): Promise<void>;
+
+    abstract markFailed(params: RecordOutboxFailureParams): Promise<void>;
 
     abstract getStats(maxPendingToCount: number): Promise<OutboxStats>;
 }

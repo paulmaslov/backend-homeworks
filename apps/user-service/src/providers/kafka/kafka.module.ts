@@ -19,6 +19,10 @@ import { KAFKA_CLIENT } from "@user-service/providers/kafka/kafka.constants";
                             clientId: "user-service",
                             brokers:
                                 config.getOrThrow<string[]>("kafka.brokers"),
+                            // повторы kafkajs по умолчанию (5, около 10 с) не
+                            // дали бы relay вовремя увидеть отказ брокера,
+                            // тк таймаут отправки сработал бы раньше
+                            retry: { retries: 2 },
                         },
                         producerOnlyMode: true,
                         producer: {

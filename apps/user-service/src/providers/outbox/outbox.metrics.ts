@@ -32,6 +32,7 @@ const STATS_TIMEOUT_MS = 1_000;
 const STATS_METRICS = {
     PENDING: "outbox_pending_events",
     OLDEST_AGE: "outbox_oldest_pending_event_age_seconds",
+    FAILED: "outbox_failed_events",
     UP: "outbox_stats_up",
 } as const;
 
@@ -71,6 +72,19 @@ export class OutboxMetrics implements OnModuleInit, OnModuleDestroy {
             async collect() {
                 try {
                     this.set((await readStats()).oldestAgeSeconds);
+                } catch {
+                    // о сбое говорит outbox_stats_up
+                }
+            },
+        });
+
+        // алерт, если больше 0
+        new Gauge({
+            name: STATS_METRICS.FAILED,
+            help: "Number of outbox events set aside after all publish attempts",
+            async collect() {
+                try {
+                    this.set((await readStats()).failed);
                 } catch {
                     // о сбое говорит outbox_stats_up
                 }

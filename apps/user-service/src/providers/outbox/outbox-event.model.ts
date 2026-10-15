@@ -33,6 +33,18 @@ export class OutboxEvent extends BaseModel<
     @Column({ type: DataType.DATE, allowNull: true })
     declare leasedUntil: Date | null;
 
+    // сколько раз брокер отказался принять событие
+    @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
+    declare attempts: number;
+
+    // текст последнего отказа брокера
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare lastError: string | null;
+
+    // когда событие отложено после всех попыток, null - еще отправляется
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare failedAt: Date | null;
+
     @CreatedAt
     declare createdAt: Date;
 }

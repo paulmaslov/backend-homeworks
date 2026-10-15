@@ -7,6 +7,13 @@ import {
     DatabaseConfig,
 } from "@user-service/providers/databases/postgresql/sequelize-options";
 
+// запрос дольше этого postgres отменяет сам. долгих запросов у сервиса нет,
+// а зависший держал бы соединение из пула и блокировки строк
+const STATEMENT_TIMEOUT_MS = 30_000;
+
+// если база не отвечает совсем на нашей стороне перестаем ждать ответ
+const QUERY_TIMEOUT_MS = 35_000;
+
 @Module({
     imports: [
         SequelizeModule.forRootAsync({
@@ -24,6 +31,10 @@ import {
                                   logger.debug({ sql, durationMs }, "query")
                             : undefined,
                     ),
+                    dialectOptions: {
+                        statement_timeout: STATEMENT_TIMEOUT_MS,
+                        query_timeout: QUERY_TIMEOUT_MS,
+                    },
                     autoLoadModels: true,
                     synchronize: false,
                 };

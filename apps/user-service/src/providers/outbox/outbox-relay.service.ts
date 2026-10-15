@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { ClientKafkaProxy } from "@nestjs/microservices";
+import { KafkaJSProtocolError } from "kafkajs";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { lastValueFrom, timeout } from "rxjs";
 
@@ -15,7 +16,10 @@ import {
     outboxPublishErrors,
     outboxRelayLastPoll,
 } from "@user-service/providers/outbox/outbox.metrics";
-import { IOutboxRepository } from "@user-service/providers/outbox/outbox.repository.interface";
+import {
+    ClaimedOutboxEvent,
+    IOutboxRepository,
+} from "@user-service/providers/outbox/outbox.repository.interface";
 import { OutboxSignal } from "@user-service/providers/outbox/outbox.signal";
 
 const LEASE_MS = 30_000;
@@ -23,6 +27,17 @@ const LEASE_MS = 30_000;
 const PUBLISH_TIMEOUT_MS = 10_000;
 
 const MAX_BACKOFF_MS = 30_000;
+
+// сколько раз брокер может отказать событию, прежде чем мы его отложим.
+// пауза между попытками растет от 1 с до 5 мин, все попытки занимают около часа
+const MAX_ATTEMPTS = 20;
+const FIRST_RETRY_DELAY_MS = 1_000;
+const MAX_RETRY_DELAY_MS = 5 * 60_000;
+
+interface RejectedEvent {
+    event: ClaimedOutboxEvent;
+    error: unknown;
+}
 
 @Injectable()
 export class OutboxRelayService
@@ -130,6 +145,7 @@ export class OutboxRelayService
             leaseMs: LEASE_MS,
         });
         const published = new Set<string>();
+        const rejected: RejectedEvent[] = [];
 
         try {
             // события публикуются в кафку в том порядке, в котором они лежат в аутбоксе
@@ -142,24 +158,34 @@ export class OutboxRelayService
                     break;
                 }
 
-                await lastValueFrom(
-                    this.kafka
-                        .emit(event.topic, {
-                            key: event.key,
-                            value: event.payload,
-                            headers: event.headers,
-                        })
-                        .pipe(timeout(PUBLISH_TIMEOUT_MS)),
-                );
-                published.add(event.id);
+                try {
+                    await this.publish(event);
+                    published.add(event.id);
+                } catch (error) {
+                    // брокер не ответил - недоступна kafka, а не это событие.
+                    // прерываем пачку, повторит следующая итерация после паузы
+                    if (!isRejectedByBroker(error)) {
+                        throw error;
+                    }
+
+                    // брокер ответил отказом - kafka работает, дело в самом событии.
+                    // откладываем его и отправляем остальные
+                    rejected.push({ event, error });
+                }
             }
         } finally {
             outboxEventsPublished.inc(published.size);
             await this.outboxRepository.deletePublished([...published]);
+            await this.retryRejected(rejected);
+
+            const handled = new Set([
+                ...published,
+                ...rejected.map(({ event }) => event.id),
+            ]);
             await this.outboxRepository.release(
                 events
                     .map((event) => event.id)
-                    .filter((id) => !published.has(id)),
+                    .filter((id) => !handled.has(id)),
             );
         }
 
@@ -173,6 +199,63 @@ export class OutboxRelayService
         return events.length;
     }
 
+    private async publish(event: ClaimedOutboxEvent): Promise<void> {
+        await lastValueFrom(
+            this.kafka
+                .emit(event.topic, {
+                    key: event.key,
+                    value: event.payload,
+                    headers: event.headers,
+                })
+                .pipe(timeout(PUBLISH_TIMEOUT_MS)),
+        );
+    }
+
+    // событию, от которого отказался брокер, засчитываем попытку и назначаем
+    // следующую с растущей паузой. после MAX_ATTEMPTS откладываем насовсем:
+    // такое событие должен будет вручную разобрать человек
+    private async retryRejected(rejected: RejectedEvent[]): Promise<void> {
+        for (const { event, error } of rejected) {
+            const attempts = event.attempts + 1;
+            const lastError =
+                error instanceof Error ? error.message : String(error);
+            const context = {
+                err: error,
+                eventId: event.id,
+                topic: event.topic,
+                attempts,
+            };
+
+            if (attempts >= MAX_ATTEMPTS) {
+                await this.outboxRepository.markFailed({
+                    id: event.id,
+                    attempts,
+                    lastError,
+                });
+                this.logger.error(
+                    context,
+                    "Outbox event set aside after repeated rejections",
+                );
+                continue;
+            }
+
+            const retryInMs = Math.min(
+                FIRST_RETRY_DELAY_MS * 2 ** (attempts - 1),
+                MAX_RETRY_DELAY_MS,
+            );
+            await this.outboxRepository.scheduleRetry({
+                id: event.id,
+                attempts,
+                lastError,
+                retryInMs,
+            });
+            this.logger.warn(
+                { ...context, retryInMs },
+                "Outbox event rejected by Kafka, retrying later",
+            );
+        }
+    }
+
     private backoff(ms: number): Promise<void> {
         return new Promise((resolve) => {
             const timer = setTimeout(resolve, ms);
@@ -183,4 +266,19 @@ export class OutboxRelayService
             };
         });
     }
+}
+
+// true, если кафка ответила отказом (нужного топика не существует,
+// либо проблема с сообщением)
+function isRejectedByBroker(error: unknown): boolean {
+    let current: unknown = error;
+
+    while (current instanceof Error) {
+        if (current instanceof KafkaJSProtocolError) {
+            return true;
+        }
+        current = current.cause;
+    }
+
+    return false;
 }
