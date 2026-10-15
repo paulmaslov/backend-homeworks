@@ -5,7 +5,7 @@ import {
     AccessTokenVerifier,
     AuthenticatedUser,
     extractBearerToken,
-} from "./access-token.verifier";
+} from "@libs/common";
 
 @Injectable()
 export class WsAuthService {

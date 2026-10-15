@@ -1,8 +1,12 @@
+import { createPublicKey } from "node:crypto";
+
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+
+import { AccessTokenModule } from "@libs/common";
 
 import { AvatarsModule } from "@user-service/features/avatars/avatars.module";
 import { BalanceResetModule } from "@user-service/features/balance-reset/balance-reset.module";
@@ -30,6 +34,17 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: buildLoggerOptions,
+        }),
+        AccessTokenModule.registerAsync({
+            inject: [ConfigService],
+            // у user-service только приватный ключ, публичный получаем из него
+            useFactory: (config: ConfigService) => ({
+                publicKey: createPublicKey(
+                    config.getOrThrow<string>("jwt.accessPrivateKey"),
+                )
+                    .export({ type: "spki", format: "pem" })
+                    .toString(),
+            }),
         }),
         PostgresqlModule,
         UsersModule,

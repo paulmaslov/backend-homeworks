@@ -1,4 +1,4 @@
-import { AccessTokenErrorCode } from "./auth.constants";
+import { AccessTokenErrorCode } from "./access-token.constants";
 
 // access-токен не прошел проверку. socket.io передает клиенту в connect_error
 // поля message и data этой ошибки, http-guard кладет code в тело ответа 401

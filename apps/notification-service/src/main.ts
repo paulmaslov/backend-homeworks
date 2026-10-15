@@ -5,7 +5,7 @@ import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { Partitioners } from "kafkajs";
 import { Logger } from "nestjs-pino";
 
-import { setupHttpApp } from "@libs/common";
+import { setupHttpApp, setupSwagger } from "@libs/common";
 
 import { AppModule } from "@notification-service/app.module";
 
@@ -15,6 +15,11 @@ async function bootstrap() {
     const config = app.get(ConfigService);
 
     setupHttpApp(app);
+    setupSwagger(app, {
+        title: "Notification service API",
+        description:
+            "History of user notifications. Realtime notifications are delivered over Socket.IO, see README",
+    });
 
     app.connectMicroservice<MicroserviceOptions>({
         transport: Transport.KAFKA,

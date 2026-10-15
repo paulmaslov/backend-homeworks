@@ -64,3 +64,6 @@ export const NotificationRecordSchema =
 
 // индекс создает миграция, тут мы проверяем наличие этого индекса
 NotificationRecordSchema.index({ userId: 1, eventId: 1 }, { unique: true });
+
+// лента пользователя для истории уведомлений, от новых к старым
+NotificationRecordSchema.index({ userId: 1, createdAt: -1, _id: -1 });

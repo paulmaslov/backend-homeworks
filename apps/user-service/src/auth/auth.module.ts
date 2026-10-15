@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtModule, JwtSignOptions } from "@nestjs/jwt";
-import { PassportModule } from "@nestjs/passport";
 
 import { JWT_ACCESS_ALGORITHM } from "@libs/contracts";
 
@@ -10,13 +9,11 @@ import { UsersModule } from "@user-service/features/users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { RefreshTokenModule } from "./refresh-token.module";
-import { AccessTokenStrategy } from "./strategies/access-token.strategy";
 
 @Module({
     imports: [
         UsersModule,
         RefreshTokenModule,
-        PassportModule,
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
@@ -28,7 +25,7 @@ import { AccessTokenStrategy } from "./strategies/access-token.strategy";
             }),
         }),
     ],
-    providers: [AccessTokenStrategy, AuthService],
+    providers: [AuthService],
     controllers: [AuthController],
 })
 export class AuthModule {}

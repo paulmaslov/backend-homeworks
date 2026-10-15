@@ -12,8 +12,8 @@ import {
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { DefaultEventsMap, Server, Socket } from "socket.io";
 
-import { AccessTokenError } from "@notification-service/auth/access-token.error";
-import { AuthenticatedUser } from "@notification-service/auth/access-token.verifier";
+import { AccessTokenError, AuthenticatedUser } from "@libs/common";
+
 import { WsAuthService } from "@notification-service/auth/ws-auth.service";
 import {
     ClientToServerEvents,

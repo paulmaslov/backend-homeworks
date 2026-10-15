@@ -4,7 +4,9 @@ import { Model, mongo, Types } from "mongoose";
 
 import {
     AddNotificationData,
+    FindNotificationsParams,
     INotificationRepository,
+    NotificationsPage,
 } from "@notification-service/features/notification/notification.repository.interface";
 import { NotificationRecord } from "@notification-service/features/notification/notification.schema";
 
@@ -52,6 +54,49 @@ export class NotificationRepository
                 throw error;
             }
         }
+    }
+
+    async findPage({
+        userId,
+        limit,
+        olderThan,
+    }: FindNotificationsParams): Promise<NotificationsPage> {
+        const records = await this.notificationModel
+            .find({
+                userId,
+                ...(olderThan && {
+                    $or: [
+                        { createdAt: { $lt: olderThan.createdAt } },
+                        {
+                            createdAt: olderThan.createdAt,
+                            _id: { $lt: new Types.ObjectId(olderThan.id) },
+                        },
+                    ],
+                }),
+            })
+            .sort({ createdAt: -1, _id: -1 })
+            // если есть лишняя запись, то есть и следующая страница
+            .limit(limit + 1)
+            .lean();
+
+        const page = records.slice(0, limit);
+        const last = page.at(-1);
+
+        return {
+            notifications: page.map((record) => ({
+                id: record.eventId,
+                type: record.type,
+                transferId: record.data.transferId,
+                fromUserId: record.data.fromUserId,
+                toUserId: record.data.toUserId,
+                amount: record.data.amount.toString(),
+                occurredAt: record.occurredAt.toISOString(),
+            })),
+            next:
+                records.length > limit && last
+                    ? { createdAt: last.createdAt, id: last._id.toString() }
+                    : null,
+        };
     }
 }
 
