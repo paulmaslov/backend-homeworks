@@ -9,6 +9,8 @@ export * from "./dto/error-response.dto";
 export * from "./filters/all-exceptions.filter";
 export * from "./health/health.constants";
 export * from "./health/health-check.filter";
+export * from "./health/kafka-health.indicator";
+export * from "./health/kafka-health.module";
 export * from "./http/setup-http-app";
 export * from "./http/setup-swagger";
 export * from "./logger/logger-params";

@@ -12,6 +12,7 @@ import {
     HEALTH_CHECK_TIMEOUT_MS,
     HEALTH_PATH,
     HealthCheckFilter,
+    KafkaHealthIndicator,
 } from "@libs/common";
 
 @ApiTags("health")
@@ -22,6 +23,7 @@ export class HealthController {
     constructor(
         private readonly health: HealthCheckService,
         private readonly postgres: SequelizeHealthIndicator,
+        private readonly kafka: KafkaHealthIndicator,
     ) {}
 
     @ApiOperation({ summary: "Liveness probe" })
@@ -40,6 +42,7 @@ export class HealthController {
                 this.postgres
                     .pingCheck("postgres")
                     .withTimeout(HEALTH_CHECK_TIMEOUT_MS),
+            () => this.kafka.check("kafka"),
         ]);
     }
 }
