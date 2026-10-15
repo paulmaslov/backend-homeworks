@@ -4,22 +4,13 @@ import { Params } from "nestjs-pino";
 import { SerializedRequest, SerializedResponse } from "pino";
 import { Options } from "pino-http";
 
-import { HEALTH_PATH } from "../health/health.constants";
-import { SWAGGER_PATH } from "../http/setup-swagger";
-import { METRICS_PATH } from "../metrics/metrics.constants";
+import { isServiceRequest } from "../http/service-routes";
 
 export interface LoggerSettings {
     level: string;
     pretty: boolean;
     env: string;
 }
-
-// документацию и пробы не логируем, чтобы не забивать лог
-const NOT_LOGGED_PATHS = [
-    `/${SWAGGER_PATH}`,
-    `/${HEALTH_PATH}/`,
-    `/${METRICS_PATH}`,
-];
 
 export function buildLoggerParams(
     settings: LoggerSettings,
@@ -88,12 +79,7 @@ export function buildLoggerParams(
                   }
                 : undefined,
 
-            autoLogging: {
-                ignore: (req) =>
-                    NOT_LOGGED_PATHS.some(
-                        (path) => req.url?.startsWith(path) ?? false,
-                    ),
-            },
+            autoLogging: { ignore: (req) => isServiceRequest(req.url) },
 
             ...overrides,
         },

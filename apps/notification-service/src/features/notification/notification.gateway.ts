@@ -20,6 +20,10 @@ import {
     ServerToClientEvents,
     UserNotification,
 } from "@notification-service/features/notification/notification.events";
+import {
+    notificationsSent,
+    websocketConnections,
+} from "@notification-service/features/notification/notification.metrics";
 
 const userRoom = (userId: string): string => `user:${userId}`;
 
@@ -78,6 +82,8 @@ export class NotificationGateway
     handleConnection(client: NotificationSocket): void {
         const { userId, tokenExpiresAt } = client.data;
 
+        websocketConnections.inc();
+
         void client.join(userRoom(userId));
 
         const expiryTimer = setTimeout(() => {
@@ -99,6 +105,8 @@ export class NotificationGateway
     }
 
     handleDisconnect(client: NotificationSocket): void {
+        websocketConnections.dec();
+
         this.logger.info(
             { clientId: client.id, userId: client.data.userId },
             "Client disconnected",
@@ -107,6 +115,8 @@ export class NotificationGateway
 
     sendNotification(userId: string, notification: UserNotification): void {
         this.server.to(userRoom(userId)).emit("notification", notification);
+
+        notificationsSent.inc({ type: notification.type });
 
         this.logger.debug(
             { userId, notificationId: notification.id },

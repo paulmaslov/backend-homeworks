@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, RpcExceptionFilter } from "@nestjs/common";
 import { KafkaContext, RpcException } from "@nestjs/microservices";
+import { Counter } from "@prometheus-io/client";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { from, Observable, throwError } from "rxjs";
 
@@ -18,6 +19,12 @@ export const DEAD_LETTER_HEADERS = {
 } as const;
 
 export const deadLetterTopic = (topic: string): string => `${topic}.dlq`;
+
+const deadLetters = new Counter({
+    name: "notification_dead_letters_total",
+    help: "Number of Kafka messages moved to dead letter topics",
+    labelNames: ["topic", "reason"],
+});
 
 @Catch()
 export class KafkaDeadLetterFilter implements RpcExceptionFilter<unknown> {
@@ -74,6 +81,8 @@ export class KafkaDeadLetterFilter implements RpcExceptionFilter<unknown> {
                 },
             ],
         });
+
+        deadLetters.inc({ topic, reason });
 
         this.logger.error(
             {

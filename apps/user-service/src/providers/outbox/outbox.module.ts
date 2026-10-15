@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { SequelizeModule } from "@nestjs/sequelize";
 
 import { KafkaModule } from "@user-service/providers/kafka/kafka.module";
+import { OutboxMetrics } from "@user-service/providers/outbox/outbox.metrics";
 import { OutboxRepository } from "@user-service/providers/outbox/outbox.repository";
 import { IOutboxRepository } from "@user-service/providers/outbox/outbox.repository.interface";
 import { OutboxSignal } from "@user-service/providers/outbox/outbox.signal";
@@ -14,6 +15,7 @@ import { OutboxRelayService } from "@user-service/providers/outbox/outbox-relay.
         { provide: IOutboxRepository, useClass: OutboxRepository },
         OutboxSignal,
         OutboxRelayService,
+        OutboxMetrics,
     ],
     exports: [IOutboxRepository],
 })

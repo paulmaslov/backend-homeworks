@@ -8,6 +8,7 @@ import {
     HealthIndicatorResult,
     HealthIndicatorService,
 } from "@nestjs/terminus";
+import { Gauge } from "@prometheus-io/client";
 import { Admin, Kafka, logLevel } from "kafkajs";
 
 import {
@@ -18,6 +19,13 @@ import {
 const CHECK_INTERVAL_MS = 10_000;
 
 const REQUEST_TIMEOUT_MS = 3_000;
+
+// 1 - kafka ответила на последнюю фоновую проверку, 0 - нет. алерт, если 0
+// держится дольше нескольких минут
+const kafkaAvailable = new Gauge({
+    name: "kafka_available",
+    help: "Whether Kafka answered the last background check: 1 - yes, 0 - no",
+});
 
 interface KafkaState {
     available: boolean;
@@ -88,6 +96,8 @@ export class KafkaHealthIndicator
                 message: error instanceof Error ? error.message : String(error),
             };
         }
+
+        kafkaAvailable.set(this.state.available ? 1 : 0);
 
         if (!this.stopped) {
             this.timer = setTimeout(

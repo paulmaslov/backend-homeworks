@@ -22,6 +22,12 @@ export interface ClaimedOutboxEvent {
     readonly headers: Record<string, string>;
 }
 
+export interface OutboxStats {
+    readonly pending: number;
+    // сколько секунд ждет самое старое событие, 0 - если очередь пуста
+    readonly oldestAgeSeconds: number;
+}
+
 export abstract class IOutboxRepository {
     // транзакция обязательна, тк событие коммитится вместе с операцией,
     // которую оно описывает
@@ -37,4 +43,6 @@ export abstract class IOutboxRepository {
     abstract deletePublished(ids: string[]): Promise<void>;
 
     abstract release(ids: string[]): Promise<void>;
+
+    abstract getStats(maxPendingToCount: number): Promise<OutboxStats>;
 }

@@ -9,6 +9,7 @@ import {
     ClaimedOutboxEvent,
     ClaimOutboxEventsParams,
     IOutboxRepository,
+    OutboxStats,
 } from "@user-service/providers/outbox/outbox.repository.interface";
 import { OutboxSignal } from "@user-service/providers/outbox/outbox.signal";
 import { OutboxEvent } from "@user-service/providers/outbox/outbox-event.model";
@@ -30,6 +31,16 @@ const CLAIM_SQL = `
     SELECT id, topic, key, payload, headers
     FROM leased
     ORDER BY "createdAt", id
+`;
+
+const STATS_SQL = `
+    SELECT
+        (SELECT count(*) FROM (SELECT 1 FROM outbox_events LIMIT $1) AS capped)::int
+            AS pending,
+        COALESCE(
+            EXTRACT(EPOCH FROM now() - (SELECT min("createdAt") FROM outbox_events)),
+            0
+        )::float8 AS "oldestAgeSeconds"
 `;
 
 @Injectable()
@@ -78,5 +89,14 @@ export class OutboxRepository
         }
 
         await this.model.update({ leasedUntil: null }, { where: { id: ids } });
+    }
+
+    async getStats(maxPendingToCount: number): Promise<OutboxStats> {
+        const [stats] = await this.sequelize.query<OutboxStats>(STATS_SQL, {
+            bind: [maxPendingToCount],
+            type: QueryTypes.SELECT,
+        });
+
+        return stats;
     }
 }

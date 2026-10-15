@@ -7,6 +7,7 @@ import { HttpAdapterHost } from "@nestjs/core";
 
 import { AllExceptionsFilter } from "../filters/all-exceptions.filter";
 import { HEALTH_ROUTES } from "../health/health.constants";
+import { httpMetricsMiddleware } from "../metrics/http-metrics.middleware";
 import { METRICS_PATH } from "../metrics/metrics.constants";
 
 // одинаковая для микросервисов настройка
@@ -16,6 +17,7 @@ export function setupHttpApp(app: INestApplication): void {
         exclude: [...HEALTH_ROUTES, METRICS_PATH],
     });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
+    app.use(httpMetricsMiddleware);
 
     app.useGlobalPipes(
         new ValidationPipe({

@@ -10,6 +10,11 @@ import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { lastValueFrom, timeout } from "rxjs";
 
 import { KAFKA_CLIENT } from "@user-service/providers/kafka/kafka.constants";
+import {
+    outboxEventsPublished,
+    outboxPublishErrors,
+    outboxRelayLastPoll,
+} from "@user-service/providers/outbox/outbox.metrics";
 import { IOutboxRepository } from "@user-service/providers/outbox/outbox.repository.interface";
 import { OutboxSignal } from "@user-service/providers/outbox/outbox.signal";
 
@@ -80,6 +85,7 @@ export class OutboxRelayService
         let failures = 0;
 
         while (this.running) {
+            outboxRelayLastPoll.setToCurrentTime();
             try {
                 const claimed = await this.publishBatch();
 
@@ -95,6 +101,7 @@ export class OutboxRelayService
                     await this.signal.wait(this.pollIntervalMs);
                 }
             } catch (error) {
+                outboxPublishErrors.inc();
                 failures += 1;
                 const delayMs = Math.min(
                     this.pollIntervalMs * 2 ** failures,
@@ -147,6 +154,7 @@ export class OutboxRelayService
                 published.add(event.id);
             }
         } finally {
+            outboxEventsPublished.inc(published.size);
             await this.outboxRepository.deletePublished([...published]);
             await this.outboxRepository.release(
                 events
