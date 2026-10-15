@@ -6,7 +6,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
 
-import { AccessTokenModule } from "@libs/common";
+import { AccessTokenModule, ShutdownLogger } from "@libs/common";
 
 import { AvatarsModule } from "@user-service/features/avatars/avatars.module";
 import { BalanceResetModule } from "@user-service/features/balance-reset/balance-reset.module";
@@ -71,6 +71,7 @@ import { PostgresqlModule } from "./providers/databases/postgresql/postgresql.mo
     providers: [
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_INTERCEPTOR, useClass: LoggerContextInterceptor },
+        ShutdownLogger,
     ],
 })
 export class AppModule {}

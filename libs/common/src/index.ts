@@ -13,4 +13,5 @@ export * from "./health/kafka-health.indicator";
 export * from "./health/kafka-health.module";
 export * from "./http/setup-http-app";
 export * from "./http/setup-swagger";
+export * from "./lifecycle/shutdown.logger";
 export * from "./logger/logger-params";
