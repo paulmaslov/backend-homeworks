@@ -2,12 +2,13 @@ import { Logger as NestLogger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
-import { Partitioners } from "kafkajs";
+import { Consumer, Kafka, Partitioners, Producer } from "kafkajs";
 import { Logger } from "nestjs-pino";
 
 import { setupHttpApp, setupSwagger } from "@libs/common";
 
 import { AppModule } from "@notification-service/app.module";
+import { KafkaConsumerWatcher } from "@notification-service/health/kafka-consumer.watcher";
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -21,7 +22,7 @@ async function bootstrap() {
             "History of user notifications. Realtime notifications are delivered over Socket.IO, see README",
     });
 
-    app.connectMicroservice<MicroserviceOptions>({
+    const kafkaServer = app.connectMicroservice<MicroserviceOptions>({
         transport: Transport.KAFKA,
         options: {
             client: {
@@ -45,6 +46,10 @@ async function bootstrap() {
     // запускаем только после запуска websocket gateway,
     // тк консюмер использует его при чтении из кафки
     await app.startAllMicroservices();
+
+    // consumer создается при старте микросервиса, поэтому подписываемся после него
+    const [, consumer] = kafkaServer.unwrap<[Kafka, Consumer, Producer]>();
+    app.get(KafkaConsumerWatcher).watch(consumer);
 
     new NestLogger("Bootstrap").log(
         `Application is listening on port ${port} in ${config.getOrThrow<string>("nodeEnv")} mode`,

@@ -5,6 +5,7 @@ import { TerminusModule } from "@nestjs/terminus";
 import { KafkaHealthModule } from "@libs/common";
 
 import { HealthController } from "@notification-service/health/health.controller";
+import { KafkaConsumerWatcher } from "@notification-service/health/kafka-consumer.watcher";
 
 @Module({
     imports: [
@@ -18,5 +19,6 @@ import { HealthController } from "@notification-service/health/health.controller
         }),
     ],
     controllers: [HealthController],
+    providers: [KafkaConsumerWatcher],
 })
 export class HealthModule {}

@@ -1,5 +1,16 @@
-import { Controller, Get, UseFilters, VERSION_NEUTRAL } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+    Controller,
+    Get,
+    ServiceUnavailableException,
+    UseFilters,
+    VERSION_NEUTRAL,
+} from "@nestjs/common";
+import {
+    ApiOkResponse,
+    ApiOperation,
+    ApiServiceUnavailableResponse,
+    ApiTags,
+} from "@nestjs/swagger";
 import {
     HealthCheck,
     HealthCheckResult,
@@ -14,6 +25,8 @@ import {
     KafkaHealthIndicator,
 } from "@libs/common";
 
+import { KafkaConsumerWatcher } from "@notification-service/health/kafka-consumer.watcher";
+
 @ApiTags("health")
 @UseFilters(HealthCheckFilter)
 @Controller({ path: HEALTH_PATH, version: VERSION_NEUTRAL })
@@ -22,12 +35,26 @@ export class HealthController {
         private readonly health: HealthCheckService,
         private readonly mongodb: MongooseHealthIndicator,
         private readonly kafka: KafkaHealthIndicator,
+        private readonly consumerWatcher: KafkaConsumerWatcher,
     ) {}
 
     @ApiOperation({ summary: "Liveness probe" })
     @ApiOkResponse({ description: "The process is alive" })
+    @ApiServiceUnavailableResponse({
+        description:
+            "Kafka consumer has stopped for good, the pod has to be restarted",
+    })
     @Get("live")
     live(): { status: "ok" } {
+        const stopReason = this.consumerWatcher.getStopReason();
+
+        if (stopReason !== undefined) {
+            throw new ServiceUnavailableException({
+                status: "error",
+                message: `Kafka consumer has stopped: ${stopReason}`,
+            });
+        }
+
         return { status: "ok" };
     }
 
