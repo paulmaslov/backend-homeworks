@@ -2,9 +2,9 @@ import { Injectable } from "@nestjs/common";
 import type { Consumer } from "kafkajs";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
-// kafkajs сам пытается перезапустить консюмер, если ошибка неисправимая,
-// то останавливаем консюмер, перестаем слушить события из кафки.
-// В таком случае нужен перезапуск всего пода
+// kafkajs сам перезапускает консюмер после временных ошибок. после неисправимой
+// он останавливает консюмер насовсем, и события из кафки больше не читаются.
+// в таком случае поможет только перезапуск пода
 @Injectable()
 export class KafkaConsumerWatcher {
     private stopReason?: string;

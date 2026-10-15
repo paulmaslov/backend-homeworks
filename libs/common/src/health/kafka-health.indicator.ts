@@ -27,7 +27,7 @@ interface KafkaState {
 
 // если кафка упадет, то наше приложение продолжает принимать запросы, но деградирует
 // сообщения об уведомлениях сохраняются в аутбоксе. Перезапуском кафки
-// занимается окрежение (кубернетис)
+// занимается окружение (кубернетис)
 @Injectable()
 export class KafkaHealthIndicator
     implements OnApplicationBootstrap, OnModuleDestroy
