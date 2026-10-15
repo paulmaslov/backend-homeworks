@@ -20,7 +20,7 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import type { StringValue } from "ms";
 import ms from "ms";
 

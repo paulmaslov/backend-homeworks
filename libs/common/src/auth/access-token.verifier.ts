@@ -7,7 +7,7 @@ import { ACCESS_TOKEN_ERROR_CODES } from "./access-token.constants";
 import { AccessTokenError } from "./access-token.error";
 import {
     ACCESS_TOKEN_MODULE_OPTIONS,
-    AccessTokenModuleOptions,
+    type AccessTokenModuleOptions,
 } from "./access-token.module-definition";
 
 const BEARER_HEADER = /^Bearer\s+(\S+)$/i;

@@ -1,7 +1,7 @@
 import { Column, DataType, Table } from "sequelize-typescript";
 
 import { BaseModel } from "@user-service/common/models/base.model";
-import { BalanceResetRunStatus } from "@user-service/features/balance-reset/balance-reset.constants";
+import type { BalanceResetRunStatus } from "@user-service/features/balance-reset/balance-reset.constants";
 
 interface BalanceResetRunCreationAttrs {
     runId: string;

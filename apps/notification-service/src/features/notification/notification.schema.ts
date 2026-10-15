@@ -3,7 +3,7 @@ import { Schema as MongooseSchema, Types } from "mongoose";
 
 import {
     NOTIFICATION_TYPES,
-    NotificationType,
+    type NotificationType,
 } from "@notification-service/features/notification/notification.events";
 
 // поля, которые зависят от типа уведомления: у будущих типов

@@ -22,7 +22,7 @@
         "test:debug": "node --experimental-vm-modules --disable-warning=ExperimentalWarning --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest.js --runInBand",
         "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning -r tsconfig-paths/register node_modules/jest/bin/jest.js --config ./apps/user-service/test/jest-e2e.json",
         "prepare": "husky",
-        "pre-commit": "lint-staged",
+        "pre-commit": "lint-staged && npm run typecheck",
         "migration:user:up": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts up",
         "migration:user:down": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts down",
         "migration:user:pending": "ts-node -r tsconfig-paths/register apps/user-service/src/databases/migrate.ts pending",

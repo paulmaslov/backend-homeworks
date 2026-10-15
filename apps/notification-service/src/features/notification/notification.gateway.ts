@@ -7,7 +7,7 @@ import {
     SubscribeMessage,
     WebSocketGateway,
     WebSocketServer,
-    WsResponse,
+    type WsResponse,
 } from "@nestjs/websockets";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { DefaultEventsMap, Server, Socket } from "socket.io";

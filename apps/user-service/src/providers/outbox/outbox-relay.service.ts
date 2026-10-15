@@ -5,7 +5,7 @@ import {
     OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ClientKafkaProxy } from "@nestjs/microservices";
+import type { ClientKafkaProxy } from "@nestjs/microservices";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 import { lastValueFrom, timeout } from "rxjs";
 

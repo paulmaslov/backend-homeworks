@@ -2,7 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 
 import {
     NOTIFICATION_TYPES,
-    NotificationType,
+    type NotificationType,
     UserNotification,
 } from "@notification-service/features/notification/notification.events";
 

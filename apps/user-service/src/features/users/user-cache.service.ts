@@ -1,7 +1,7 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Cache } from "cache-manager";
+import type { Cache } from "cache-manager";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 import { ListUsersQueryDto } from "@user-service/features/users/dto/list-users-query.dto";

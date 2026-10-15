@@ -19,7 +19,7 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { Response } from "express";
+import type { Response } from "express";
 
 import { AccessTokenGuard, CurrentUser, ErrorResponseDto } from "@libs/common";
 
