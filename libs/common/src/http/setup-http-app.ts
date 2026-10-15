@@ -7,11 +7,14 @@ import { HttpAdapterHost } from "@nestjs/core";
 
 import { AllExceptionsFilter } from "../filters/all-exceptions.filter";
 import { HEALTH_ROUTES } from "../health/health.constants";
+import { METRICS_PATH } from "../metrics/metrics.constants";
 
 // одинаковая для микросервисов настройка
 // добавление префикса на запрос + версионирование + глобальные пайпы и фильтр ошибок
 export function setupHttpApp(app: INestApplication): void {
-    app.setGlobalPrefix("api", { exclude: HEALTH_ROUTES });
+    app.setGlobalPrefix("api", {
+        exclude: [...HEALTH_ROUTES, METRICS_PATH],
+    });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: "1" });
 
     app.useGlobalPipes(

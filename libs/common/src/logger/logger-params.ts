@@ -6,6 +6,7 @@ import { Options } from "pino-http";
 
 import { HEALTH_PATH } from "../health/health.constants";
 import { SWAGGER_PATH } from "../http/setup-swagger";
+import { METRICS_PATH } from "../metrics/metrics.constants";
 
 export interface LoggerSettings {
     level: string;
@@ -14,7 +15,11 @@ export interface LoggerSettings {
 }
 
 // документацию и пробы не логируем, чтобы не забивать лог
-const NOT_LOGGED_PATHS = [`/${SWAGGER_PATH}`, `/${HEALTH_PATH}/`];
+const NOT_LOGGED_PATHS = [
+    `/${SWAGGER_PATH}`,
+    `/${HEALTH_PATH}/`,
+    `/${METRICS_PATH}`,
+];
 
 export function buildLoggerParams(
     settings: LoggerSettings,
