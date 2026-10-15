@@ -1,8 +1,9 @@
-import { generateKeyPairSync, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { INestApplication } from "@nestjs/common";
 
 import { ACCESS_TOKEN_ERROR_CODES } from "@libs/common";
+import { generateRsaKeyPair } from "@libs/testing";
 
 import { createTestApp } from "./helpers/create-test-app";
 import {
@@ -13,11 +14,7 @@ import {
 } from "./helpers/socket";
 import { signAccessToken } from "./helpers/tokens";
 
-const { privateKey: foreignKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-    publicKeyEncoding: { type: "spki", format: "pem" },
-});
+const { privateKey: foreignKey } = generateRsaKeyPair();
 
 describe("WebSocket authentication (e2e)", () => {
     let app: INestApplication;

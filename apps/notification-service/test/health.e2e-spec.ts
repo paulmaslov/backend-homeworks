@@ -1,8 +1,9 @@
 import { INestApplication } from "@nestjs/common";
 
+import { eventually } from "@libs/testing";
+
 import { api } from "./helpers/api";
 import { createTestApp } from "./helpers/create-test-app";
-import { eventually } from "./helpers/wait";
 
 describe("Health (e2e)", () => {
     let app: INestApplication;

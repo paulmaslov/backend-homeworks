@@ -1,12 +1,14 @@
-import { generateKeyPairSync } from "node:crypto";
-
 import * as AWS from "@aws-sdk/client-s3";
+import { StartedKafkaContainer } from "@testcontainers/kafka";
 import { MinioContainer, StartedMinioContainer } from "@testcontainers/minio";
 import {
     PostgreSqlContainer,
     StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { RedisContainer, StartedRedisContainer } from "@testcontainers/redis";
+
+import { WALLET_TOPICS } from "@libs/contracts";
+import { generateRsaKeyPair, startKafkaContainer } from "@libs/testing";
 
 import {
     createMigrator,
@@ -19,7 +21,6 @@ import {
     BALANCE_RESET_ENABLED,
     BALANCE_RESET_INTERVAL,
     IDEMPOTENCY_KEY_TTL,
-    KAFKA_BROKERS,
     OUTBOX_BATCH_SIZE,
     OUTBOX_POLL_INTERVAL,
     OUTBOX_RELAY_ENABLED,
@@ -35,11 +36,15 @@ declare global {
     var __POSTGRES_CONTAINER__: StartedPostgreSqlContainer | undefined;
     var __MINIO_CONTAINER__: StartedMinioContainer | undefined;
     var __REDIS_CONTAINER__: StartedRedisContainer | undefined;
+    var __KAFKA_CONTAINER__: StartedKafkaContainer | undefined;
 }
 
 const POSTGRES_IMAGE = "postgres:16-alpine";
 const MINIO_IMAGE = "minio/minio";
 const REDIS_IMAGE = "redis:7-alpine";
+
+// как в docker-compose
+const TRANSFER_TOPIC_PARTITIONS = 3;
 
 // политика как в compose :
 const buildPublicReadPolicy = (bucket: string): string =>
@@ -133,6 +138,22 @@ async function startRedis(): Promise<void> {
     );
 }
 
+async function startKafka(): Promise<void> {
+    console.log("[e2e] Starting kafka container...");
+
+    const { container, brokers } = await startKafkaContainer([
+        {
+            topic: WALLET_TOPICS.TRANSFER_COMPLETED,
+            numPartitions: TRANSFER_TOPIC_PARTITIONS,
+        },
+    ]);
+
+    globalThis.__KAFKA_CONTAINER__ = container;
+    process.env.KAFKA_BROKERS = brokers;
+
+    console.log(`[e2e] Kafka is ready: ${brokers}`);
+}
+
 export default async function globalSetup(): Promise<void> {
     process.env.NODE_ENV = "test";
     process.env.PORT = "3001";
@@ -140,11 +161,7 @@ export default async function globalSetup(): Promise<void> {
     // большой лимит, чтобы тесты не триггерили рейт лимитер
     process.env.RATE_LIMIT_REQUESTS = RATE_LIMIT_REQUESTS;
     process.env.RATE_LIMIT_PERIOD = RATE_LIMIT_PERIOD;
-    process.env.JWT_ACCESS_PRIVATE_KEY = generateKeyPairSync("rsa", {
-        modulusLength: 2048,
-        privateKeyEncoding: { type: "pkcs8", format: "pem" },
-        publicKeyEncoding: { type: "spki", format: "pem" },
-    }).privateKey;
+    process.env.JWT_ACCESS_PRIVATE_KEY = generateRsaKeyPair().privateKey;
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.REFRESH_TOKEN_EXPIRES_IN = "7d";
 
@@ -155,7 +172,6 @@ export default async function globalSetup(): Promise<void> {
     process.env.BALANCE_RESET_BATCH_SIZE = BALANCE_RESET_BATCH_SIZE;
     process.env.BALANCE_RESET_DEDUP_TTL = BALANCE_RESET_DEDUP_TTL;
 
-    process.env.KAFKA_BROKERS = KAFKA_BROKERS;
     process.env.OUTBOX_RELAY_ENABLED = OUTBOX_RELAY_ENABLED;
     process.env.OUTBOX_POLL_INTERVAL = OUTBOX_POLL_INTERVAL;
     process.env.OUTBOX_BATCH_SIZE = OUTBOX_BATCH_SIZE;
@@ -163,7 +179,12 @@ export default async function globalSetup(): Promise<void> {
     process.env.LOG_LEVEL = "silent";
     process.env.LOG_PRETTY = "false";
 
-    await Promise.all([startPostgres(), startMinio(), startRedis()]);
+    await Promise.all([
+        startPostgres(),
+        startMinio(),
+        startRedis(),
+        startKafka(),
+    ]);
 
     const sequelize = createSequelize();
     try {

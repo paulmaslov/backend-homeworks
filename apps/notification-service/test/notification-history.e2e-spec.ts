@@ -5,12 +5,12 @@ import { Producer } from "kafkajs";
 
 import { ACCESS_TOKEN_ERROR_CODES } from "@libs/common";
 import { TransferCompletedEvent, WALLET_TOPICS } from "@libs/contracts";
+import { eventually } from "@libs/testing";
 
 import { api, API_PREFIX, getHistory } from "./helpers/api";
 import { buildTransferEvent } from "./helpers/build-event";
 import { createTestApp } from "./helpers/create-test-app";
 import { createProducer, publish } from "./helpers/kafka";
-import { eventually } from "./helpers/wait";
 
 const TOPIC = WALLET_TOPICS.TRANSFER_COMPLETED;
 

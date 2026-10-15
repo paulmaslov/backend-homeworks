@@ -4,6 +4,7 @@ import { INestApplication } from "@nestjs/common";
 import { Producer } from "kafkajs";
 
 import { WALLET_TOPICS } from "@libs/contracts";
+import { eventually, readTopic, TopicReader } from "@libs/testing";
 
 import {
     DEAD_LETTER_HEADERS,
@@ -14,19 +15,13 @@ import { NOTIFICATION_TYPES } from "@notification-service/features/notification/
 import { getHistory } from "./helpers/api";
 import { buildTransferEvent } from "./helpers/build-event";
 import { createTestApp } from "./helpers/create-test-app";
-import {
-    createProducer,
-    publish,
-    readTopic,
-    TopicReader,
-} from "./helpers/kafka";
+import { createProducer, publish } from "./helpers/kafka";
 import {
     connectSocket,
     waitForConnect,
     waitForNotification,
 } from "./helpers/socket";
 import { signAccessToken } from "./helpers/tokens";
-import { eventually } from "./helpers/wait";
 
 const TOPIC = WALLET_TOPICS.TRANSFER_COMPLETED;
 

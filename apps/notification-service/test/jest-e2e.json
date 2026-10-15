@@ -9,6 +9,7 @@
     "moduleNameMapper": {
         "^@libs/common(|/.*)$": "<rootDir>/../../libs/common/src/$1",
         "^@libs/contracts(|/.*)$": "<rootDir>/../../libs/contracts/src/$1",
+        "^@libs/testing(|/.*)$": "<rootDir>/../../libs/testing/src/$1",
         "^@notification-service/(.*)$": "<rootDir>/src/$1"
     },
     "collectCoverage": true,

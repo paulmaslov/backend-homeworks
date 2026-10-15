@@ -15,6 +15,7 @@
         "paths": {
             "@libs/common": ["./libs/common/src"],
             "@libs/contracts": ["./libs/contracts/src"],
+            "@libs/testing": ["./libs/testing/src"],
             "@notification-service/*": ["./apps/notification-service/src/*"],
             "@user-service/*": ["./apps/user-service/src/*"]
         },

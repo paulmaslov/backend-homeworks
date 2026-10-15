@@ -4,13 +4,13 @@ import type { AddressInfo } from "node:net";
 import { INestApplication } from "@nestjs/common";
 import { io, Socket } from "socket.io-client";
 
+import { withTimeout } from "@libs/testing";
+
 import {
     ClientToServerEvents,
     ServerToClientEvents,
     UserNotification,
 } from "@notification-service/features/notification/notification.events";
-
-import { withTimeout } from "./wait";
 
 export type TestSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 

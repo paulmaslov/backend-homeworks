@@ -23,7 +23,8 @@ export function withTimeout<T>(
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-// раз в POLL_INTERVAL_MS проверяем, обработал ли сервис сообщение из кафки
+// раз в POLL_INTERVAL_MS повторяем проверку, пока сервис не закончит фоновую
+// работу: обработку сообщения из kafka, отправку из outbox, проверку kafka
 export async function eventually(
     assertion: () => Promise<void> | void,
     timeoutMs = DEFAULT_TIMEOUT_MS,

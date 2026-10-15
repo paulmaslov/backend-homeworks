@@ -30,6 +30,15 @@
                 "tsConfigPath": "libs/contracts/tsconfig.lib.json"
             }
         },
+        "testing": {
+            "type": "library",
+            "root": "libs/testing",
+            "entryFile": "index",
+            "sourceRoot": "libs/testing/src",
+            "compilerOptions": {
+                "tsConfigPath": "libs/testing/tsconfig.lib.json"
+            }
+        },
         "notification-service": {
             "type": "application",
             "root": "apps/notification-service",
