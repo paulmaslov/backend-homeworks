@@ -1,5 +1,16 @@
 import ms, { StringValue } from "ms";
 
+// настройки базы данных отдельно, чтобы мигратору хватало переменных базы данных.
+// весь конфиг падает без лишних для миграций переменных
+export const databaseConfig = () => ({
+    host: process.env.DB_HOST as string,
+    port: parseInt(process.env.DB_PORT as string, 10),
+    user: process.env.DB_USER as string,
+    password: process.env.DB_PASSWORD as string,
+    name: process.env.DB_NAME as string,
+    logging: process.env.DB_LOGGING === "true",
+});
+
 export default () => ({
     port: parseInt(process.env.PORT as string, 10),
     nodeEnv: process.env.NODE_ENV ?? "development",
@@ -11,14 +22,7 @@ export default () => ({
         requests: parseInt(process.env.RATE_LIMIT_REQUESTS as string, 10),
         periodMs: ms(process.env.RATE_LIMIT_PERIOD as StringValue),
     },
-    database: {
-        host: process.env.DB_HOST as string,
-        port: parseInt(process.env.DB_PORT as string, 10),
-        user: process.env.DB_USER as string,
-        password: process.env.DB_PASSWORD as string,
-        name: process.env.DB_NAME as string,
-        logging: process.env.DB_LOGGING === "true",
-    },
+    database: databaseConfig(),
     jwt: {
         accessPrivateKey: process.env.JWT_ACCESS_PRIVATE_KEY as string,
         accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN as string,

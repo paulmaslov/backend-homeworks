@@ -1,13 +1,13 @@
 import "dotenv/config";
 
-import appConfig from "@notification-service/configs/app.config";
+import { mongoConfig } from "@notification-service/configs/app.config";
 import {
     createMigrator,
     createMongoClient,
 } from "@notification-service/databases/migrator";
 
 async function main(): Promise<void> {
-    const config = appConfig().mongo;
+    const config = mongoConfig();
     const client = createMongoClient(config);
 
     try {

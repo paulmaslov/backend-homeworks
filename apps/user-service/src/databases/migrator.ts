@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { Sequelize } from "sequelize";
 import { SequelizeStorage, Umzug } from "umzug";
 
-import appConfig from "@user-service/configs/app.config";
+import { databaseConfig } from "@user-service/configs/app.config";
 import { MigrationContext } from "@user-service/databases/migration.context";
 import { buildSequelizeOptions } from "@user-service/providers/databases/postgresql/sequelize-options";
 
@@ -17,7 +17,7 @@ const MIGRATIONS_GLOB = path
 
 export function createSequelize(): Sequelize {
     return new Sequelize({
-        ...buildSequelizeOptions(appConfig().database),
+        ...buildSequelizeOptions(databaseConfig()),
         // umzug и так логирует каждую примененную миграцию
         logging: false,
     });
