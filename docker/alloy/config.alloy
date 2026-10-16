@@ -1,0 +1,46 @@
+// находим контейнеры через docker api
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// оставляем только сервисы приложения, имя сервиса из compose - метка service
+discovery.relabel "app" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "user-service|notification-service"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "app" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.app.output
+  forward_to = [loki.process.pino.receiver]
+}
+
+// сервисы пишут логи в json (pino). уровень делаем меткой, чтобы фильтровать
+// по нему в grafana, остальные поля разбираются уже в запросе
+loki.process "pino" {
+  stage.json {
+    expressions = { level = "" }
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

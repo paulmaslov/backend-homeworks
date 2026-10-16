@@ -218,6 +218,61 @@ services:
       retries: 3
       start_period: 15s
 
+  # метрики и логи сервисов в grafana: http://localhost:3030
+  # docker compose --profile app --profile observability up -d --build
+  prometheus:
+    profiles: [ observability ]
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - '127.0.0.1:9090:9090'
+
+  loki:
+    profiles: [ observability ]
+    image: grafana/loki:3.6.18
+    restart: unless-stopped
+    volumes:
+      - loki_data:/loki
+
+  alloy:
+    profiles: [ observability ]
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    command: [ 'run', '--storage.path=/var/lib/alloy/data', '/etc/alloy/config.alloy' ]
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # логи контейнеров alloy читает через docker api
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    profiles: [ observability ]
+    image: grafana/grafana:13.2.4
+    restart: unless-stopped
+    environment:
+      # специально выключил пароль, чтобы было проще.
+      # По хорошему нужно выключить анонимный доступ и ставить пароль
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - '127.0.0.1:3030:3000'
+    depends_on:
+      - prometheus
+      - loki
+
+
 configs:
   avatars_policy:
     content: |
@@ -239,3 +294,6 @@ volumes:
   minio_storage:
   mongo_data:
   kafka_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

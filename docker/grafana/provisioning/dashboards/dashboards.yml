@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: backend-homeworks
+    type: file
+    # дашборд хранится в репозитории, правки из интерфейса не сохраняются
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
