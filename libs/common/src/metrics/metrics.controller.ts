@@ -1,5 +1,6 @@
 import { Controller, Get, Res, VERSION_NEUTRAL } from "@nestjs/common";
 import { ApiExcludeController } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import { collectDefaultMetrics, register } from "@prometheus-io/client";
 import type { Response } from "express";
 
@@ -10,6 +11,7 @@ collectDefaultMetrics();
 
 // метрики читает prometheus, а не клиенты api, поэтому в swagger их нет
 @ApiExcludeController()
+@SkipThrottle()
 @Controller({ path: METRICS_PATH, version: VERSION_NEUTRAL })
 export class MetricsController {
     @Get()
