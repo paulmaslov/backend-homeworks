@@ -11,6 +11,11 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}' ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   minio:
     image: minio/minio
@@ -132,6 +137,87 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
+  # сервисы приложения запускаются только с профилем app:
+  # docker compose --profile app up -d --build
+  user-service-migrations:
+    profiles: [ app ]
+    build: &user-service-build
+      context: .
+      target: user-service
+    image: backend-homeworks/user-service
+    command: [ 'node', 'dist/apps/user-service/src/databases/migrate.js', 'up' ]
+    env_file:
+      - .env
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  user-service:
+    profiles: [ app ]
+    build: *user-service-build
+    image: backend-homeworks/user-service
+    restart: unless-stopped
+    init: true
+    # остановка занимает до 20 с, а по умолчанию docker ждет 10 с и убивает процесс
+    stop_grace_period: 30s
+    env_file:
+      - .env
+      - .env.docker
+    ports:
+      - '${PORT}:${PORT}'
+    depends_on:
+      user-service-migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ 'CMD', 'node', '-e', "fetch('http://localhost:${PORT}/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  notification-service-migrations:
+    profiles: [ app ]
+    build: &notification-service-build
+      context: .
+      target: notification-service
+    image: backend-homeworks/notification-service
+    command: [ 'node', 'dist/apps/notification-service/src/databases/migrate.js', 'up' ]
+    env_file:
+      - .env
+      - .env.docker
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  notification-service:
+    profiles: [ app ]
+    build: *notification-service-build
+    image: backend-homeworks/notification-service
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    env_file:
+      - .env
+      - .env.docker
+    ports:
+      - '${NOTIFICATION_PORT}:${NOTIFICATION_PORT}'
+    depends_on:
+      notification-service-migrations:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ 'CMD', 'node', '-e', "fetch('http://localhost:${NOTIFICATION_PORT}/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
 configs:
   avatars_policy:
     content: |
@@ -153,5 +239,3 @@ volumes:
   minio_storage:
   mongo_data:
   kafka_data:
-
-
