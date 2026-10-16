@@ -1,4 +1,6 @@
 import { INestApplication } from "@nestjs/common";
+import { QueryTypes } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
 
 import { AccessTokenResponseDto } from "@user-service/auth/dto/access-token-response.dto";
 
@@ -177,6 +179,28 @@ describe("Auth (e2e)", () => {
             const statuses = responses.map((response) => response.status);
             expect(statuses.filter((status) => status === 200)).toHaveLength(1);
             expect(statuses.filter((status) => status === 401)).toHaveLength(4);
+        });
+
+        it("Deletes an expired refresh token", async () => {
+            const { refreshCookie } = await registerUser(app);
+            const sequelize = app.get(Sequelize);
+
+            await sequelize.query(
+                `UPDATE refresh_tokens SET "expiresAt" = now() - interval '1 minute'`,
+            );
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(401);
+
+            // юнит-тест видит только вызов удаления, а откат транзакции
+            // заметен лишь по строке в настоящей базе
+            const [{ count }] = await sequelize.query<{ count: string }>(
+                `SELECT count(*)::text AS count FROM refresh_tokens`,
+                { type: QueryTypes.SELECT },
+            );
+            expect(count).toBe("0");
         });
 
         it("Returns 401 without refresh cookie", async () => {

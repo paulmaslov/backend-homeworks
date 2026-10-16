@@ -76,43 +76,38 @@ export class AuthService {
         return tokens;
     }
 
-    // Удаление старого токено и создание нового должны быть атомарны - делаем это в транзакции
     async refresh(rawRefreshToken: string): Promise<AuthTokensResponseDto> {
-        return this.sequelize.transaction(async (transaction) => {
-            const tokenHash = this.hashRefreshToken(rawRefreshToken);
+        const tokenHash = this.hashRefreshToken(rawRefreshToken);
 
-            const storedRefreshToken =
-                await this.refreshTokenRepository.findByTokenHash(
-                    tokenHash,
-                    transaction,
-                );
+        const storedRefreshToken =
+            await this.refreshTokenRepository.findByTokenHash(tokenHash);
 
-            if (!storedRefreshToken) {
-                this.logger.warn("Refresh failed: token not found");
-                throw new UnauthorizedException("Invalid refresh token");
-            }
+        if (!storedRefreshToken) {
+            this.logger.warn("Refresh failed: token not found");
+            throw new UnauthorizedException("Invalid refresh token");
+        }
 
-            if (storedRefreshToken.expiresAt.getTime() < Date.now()) {
-                await this.refreshTokenRepository.deleteByTokenHash(
-                    tokenHash,
-                    transaction,
-                );
+        if (storedRefreshToken.expiresAt.getTime() < Date.now()) {
+            // без транзакции: удаление коммитится сразу, и throw его не откатит
+            await this.refreshTokenRepository.deleteByTokenHash(tokenHash);
 
-                this.logger.warn(
-                    {
-                        userId: storedRefreshToken.userId,
-                        expiresAt: storedRefreshToken.expiresAt.toISOString(),
-                    },
-                    "Refresh token expired",
-                );
-
-                throw new UnauthorizedException("Refresh token expired");
-            }
-
-            const user = await this.userService.findByIdOrFail(
-                storedRefreshToken.userId,
+            this.logger.warn(
+                {
+                    userId: storedRefreshToken.userId,
+                    expiresAt: storedRefreshToken.expiresAt.toISOString(),
+                },
+                "Refresh token expired",
             );
 
+            throw new UnauthorizedException("Refresh token expired");
+        }
+
+        const user = await this.userService.findByIdOrFail(
+            storedRefreshToken.userId,
+        );
+
+        // удаление старого токена и создание нового должны быть атомарны
+        return this.sequelize.transaction(async (transaction) => {
             // select выше не блокирует строку, и параллельный refresh с тем же
             // токеном тоже ее находит. удалить строку может только один из них,
             // второй дождется его коммита и удалит 0 строк - без этой проверки
