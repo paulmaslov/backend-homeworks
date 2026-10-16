@@ -1,0 +1,745 @@
+{
+    "uid": "backend-homeworks",
+    "title": "Backend homeworks",
+    "schemaVersion": 41,
+    "refresh": "10s",
+    "time": { "from": "now-30m", "to": "now" },
+    "templating": {
+        "list": [
+            {
+                "type": "custom",
+                "name": "service",
+                "label": "Сервис",
+                "query": "user-service,notification-service",
+                "multi": true,
+                "includeAll": true,
+                "allValue": ".+",
+                "current": { "text": "All", "value": "$__all" }
+            },
+            {
+                "type": "custom",
+                "name": "level",
+                "label": "Уровень",
+                "query": "trace,debug,info,warn,error,fatal",
+                "multi": true,
+                "includeAll": true,
+                "allValue": ".*",
+                "current": { "text": "All", "value": "$__all" }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "type": "row",
+            "title": "HTTP",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+            "id": 1
+        },
+        {
+            "type": "timeseries",
+            "title": "Запросы в секунду",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (job) (rate(http_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "reqps" }
+            },
+            "id": 2
+        },
+        {
+            "type": "timeseries",
+            "title": "Доля ответов 5xx",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "(sum by (job) (rate(http_request_duration_seconds_count{job=~\"$service\", status_code=~\"5..\"}[$__rate_interval])) or sum by (job) (rate(http_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval])) * 0) / sum by (job) (rate(http_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percentunit",
+                    "min": 0,
+                    "max": 1,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 0.05 }
+                        ]
+                    },
+                    "custom": {
+                        "thresholdsStyle": { "mode": "line" }
+                    }
+                }
+            },
+            "description": "Без ошибок 5xx числителя нет, поэтому подставляется 0",
+            "id": 3
+        },
+        {
+            "type": "timeseries",
+            "title": "Время ответа, p95",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 1 }
+                        ]
+                    },
+                    "custom": {
+                        "thresholdsStyle": { "mode": "line" }
+                    }
+                }
+            },
+            "id": 4
+        },
+        {
+            "type": "row",
+            "title": "Уведомления",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+            "id": 5
+        },
+        {
+            "type": "stat",
+            "title": "WebSocket-подключения",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 6, "x": 0, "y": 10 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "notification_websocket_connections",
+                    "legendFormat": "открыто"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 6
+        },
+        {
+            "type": "timeseries",
+            "title": "Отправленные уведомления",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 9, "x": 6, "y": 10 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (type) (increase(notification_sent_total[$__rate_interval]))",
+                    "legendFormat": "{{type}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "short" }
+            },
+            "id": 7
+        },
+        {
+            "type": "timeseries",
+            "title": "Сообщения в DLQ",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 9, "x": 15, "y": 10 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (reason) (increase(notification_dead_letters_total[$__rate_interval]))",
+                    "legendFormat": "{{reason}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "short" }
+            },
+            "description": "Пусто, пока в DLQ ничего не попадало. invalid - событие не прошло проверку, failed - не удалось обработать",
+            "id": 8
+        },
+        {
+            "type": "row",
+            "title": "Outbox",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+            "id": 9
+        },
+        {
+            "type": "timeseries",
+            "title": "События в очереди",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "outbox_pending_events",
+                    "legendFormat": "ждут отправки"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "short" }
+            },
+            "id": 10
+        },
+        {
+            "type": "timeseries",
+            "title": "Возраст самого старого события",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "outbox_oldest_pending_event_age_seconds",
+                    "legendFormat": "возраст"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 60 }
+                        ]
+                    },
+                    "custom": {
+                        "thresholdsStyle": { "mode": "line" }
+                    }
+                }
+            },
+            "description": "Больше минуты - relay не успевает или Kafka недоступна",
+            "id": 11
+        },
+        {
+            "type": "stat",
+            "title": "Отложенные события",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 4, "x": 16, "y": 19 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "outbox_failed_events",
+                    "legendFormat": "отложено"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 1 }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "description": "Kafka отказалась от них после всех попыток, нужен разбор вручную",
+            "id": 12
+        },
+        {
+            "type": "stat",
+            "title": "Статистика outbox",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 4, "x": 20, "y": 19 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "outbox_stats_up",
+                    "legendFormat": "запрос к базе"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "1": { "text": "работает", "color": "green" },
+                                "0": { "text": "не отвечает", "color": "red" }
+                            }
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 13
+        },
+        {
+            "type": "row",
+            "title": "Состояние",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+            "id": 14
+        },
+        {
+            "type": "stat",
+            "title": "Сервис отвечает Prometheus",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 6, "x": 0, "y": 28 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "up{job=~\"$service\"}",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "1": { "text": "да", "color": "green" },
+                                "0": { "text": "нет", "color": "red" }
+                            }
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 15
+        },
+        {
+            "type": "stat",
+            "title": "Kafka доступна",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 6, "x": 6, "y": 28 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "kafka_available{job=~\"$service\"}",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "mappings": [
+                        {
+                            "type": "value",
+                            "options": {
+                                "1": { "text": "да", "color": "green" },
+                                "0": { "text": "нет", "color": "red" }
+                            }
+                        }
+                    ],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 16
+        },
+        {
+            "type": "stat",
+            "title": "Перезапуски за период",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 4, "x": 12, "y": 28 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "changes(process_start_time_seconds{job=~\"$service\"}[$__range])",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 1 }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "description": "Сколько раз процесс запускался заново за выбранный период",
+            "id": 17
+        },
+        {
+            "type": "stat",
+            "title": "Время работы",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 4, "x": 16, "y": 28 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "time() - process_start_time_seconds{job=~\"$service\"}",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "dtdurations",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "textMode": "auto",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 18
+        },
+        {
+            "type": "stat",
+            "title": "Версия Node.js",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 4, "x": 20, "y": 28 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "count by (version) (nodejs_version_info{job=~\"$service\"})",
+                    "legendFormat": "{{version}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [{ "color": "green", "value": null }]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "textMode": "name",
+                "orientation": "horizontal",
+                "text": { "titleSize": 14, "valueSize": 32 }
+            },
+            "id": 19
+        },
+        {
+            "type": "row",
+            "title": "Node.js",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+            "id": 20
+        },
+        {
+            "type": "timeseries",
+            "title": "CPU",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 37 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (job) (rate(process_cpu_user_seconds_total{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}} user"
+                },
+                {
+                    "refId": "B",
+                    "expr": "sum by (job) (rate(process_cpu_system_seconds_total{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}} system"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "percentunit" }
+            },
+            "description": "Доля одного ядра: 100% - процесс занял ядро целиком. user - код приложения, system - вызовы ядра ОС",
+            "id": 21
+        },
+        {
+            "type": "timeseries",
+            "title": "Задержка event loop",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 37 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "nodejs_eventloop_lag_p50_seconds{job=~\"$service\"}",
+                    "legendFormat": "{{job}} p50"
+                },
+                {
+                    "refId": "B",
+                    "expr": "nodejs_eventloop_lag_p99_seconds{job=~\"$service\"}",
+                    "legendFormat": "{{job}} p99"
+                },
+                {
+                    "refId": "C",
+                    "expr": "nodejs_eventloop_lag_max_seconds{job=~\"$service\"}",
+                    "legendFormat": "{{job}} max"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 0.1 }
+                        ]
+                    },
+                    "custom": {
+                        "thresholdsStyle": { "mode": "line" }
+                    }
+                }
+            },
+            "description": "Насколько позже запланированного выполняется код. Больше 100 мс - event loop чем-то занят надолго",
+            "id": 22
+        },
+        {
+            "type": "timeseries",
+            "title": "Загрузка event loop",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 16, "y": 37 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (job) (rate(nodejs_eventloop_utilization_summary_sum{job=~\"$service\"}[$__rate_interval])) / sum by (job) (rate(nodejs_eventloop_utilization_summary_count{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percentunit",
+                    "min": 0,
+                    "max": 1,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "color": "green", "value": null },
+                            { "color": "red", "value": 0.8 }
+                        ]
+                    },
+                    "custom": {
+                        "thresholdsStyle": { "mode": "line" }
+                    }
+                }
+            },
+            "description": "Доля времени, когда event loop не простаивает. Близко к 100% - процесс не справляется с нагрузкой",
+            "id": 23
+        },
+        {
+            "type": "timeseries",
+            "title": "Память",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 45 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "process_resident_memory_bytes{job=~\"$service\"}",
+                    "legendFormat": "{{job}} RSS"
+                },
+                {
+                    "refId": "B",
+                    "expr": "nodejs_heap_size_total_bytes{job=~\"$service\"}",
+                    "legendFormat": "{{job}} heap всего"
+                },
+                {
+                    "refId": "C",
+                    "expr": "nodejs_heap_size_used_bytes{job=~\"$service\"}",
+                    "legendFormat": "{{job}} heap занято"
+                },
+                {
+                    "refId": "D",
+                    "expr": "nodejs_external_memory_bytes{job=~\"$service\"}",
+                    "legendFormat": "{{job}} external"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "bytes" }
+            },
+            "description": "RSS - вся память процесса. external - память вне heap, например буферы sharp при обработке аватарок",
+            "id": 24
+        },
+        {
+            "type": "timeseries",
+            "title": "Heap по областям",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 45 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "nodejs_heap_space_size_used_bytes{job=~\"$service\"} > 0",
+                    "legendFormat": "{{job}} {{space}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "bytes",
+                    "custom": {
+                        "stacking": { "mode": "normal" },
+                        "fillOpacity": 30
+                    }
+                }
+            },
+            "description": "Занятая память по областям heap V8. Растущая old без падений после сборок мусора - признак утечки",
+            "id": 25
+        },
+        {
+            "type": "timeseries",
+            "title": "Активные хендлы и запросы",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 16, "y": 45 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "nodejs_active_handles_total{job=~\"$service\"}",
+                    "legendFormat": "{{job}} хендлы"
+                },
+                {
+                    "refId": "B",
+                    "expr": "nodejs_active_requests_total{job=~\"$service\"}",
+                    "legendFormat": "{{job}} запросы"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "short" }
+            },
+            "description": "Открытые сокеты, таймеры и другие ресурсы, которые держат event loop. Постоянный рост - что-то не закрывается",
+            "id": 26
+        },
+        {
+            "type": "timeseries",
+            "title": "Доля времени на сборку мусора",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 53 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (job, kind) (rate(nodejs_gc_duration_seconds_sum{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}} {{kind}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "percentunit" }
+            },
+            "description": "Какую долю времени процесс тратит на сборку мусора, по видам сборок. minor - молодые объекты, major - весь heap",
+            "id": 27
+        },
+        {
+            "type": "timeseries",
+            "title": "Сборок мусора в секунду",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 53 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (job, kind) (rate(nodejs_gc_duration_seconds_count{job=~\"$service\"}[$__rate_interval]))",
+                    "legendFormat": "{{job}} {{kind}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "ops" }
+            },
+            "id": 28
+        },
+        {
+            "type": "timeseries",
+            "title": "Открытые файловые дескрипторы",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 16, "y": 53 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "process_open_fds{job=~\"$service\"}",
+                    "legendFormat": "{{job}}"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": { "unit": "short" }
+            },
+            "description": "Файлы и сокеты, открытые процессом. Лимит процесса - метрика process_max_fds",
+            "id": 29
+        },
+        {
+            "type": "row",
+            "title": "Логи",
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 61 },
+            "id": 30
+        },
+        {
+            "type": "logs",
+            "title": "Логи сервисов",
+            "datasource": { "type": "loki", "uid": "loki" },
+            "gridPos": { "h": 14, "w": 24, "x": 0, "y": 62 },
+            "description": "В строке - контекст и сообщение, у запросов - метод, путь, статус и время. Строки не в JSON показываются как есть. Остальные поля - в деталях строки",
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "{service=~\"$service\", level=~\"$level\"} | json | drop __error__, __error_details__ | line_format \"{{if .msg}}{{if .context}}{{.context}}: {{end}}{{.msg}}{{if .req_url}} {{.req_method}} {{.req_url}} {{.res_statusCode}} {{.responseTime}}ms{{end}}{{if .err_message}} - {{.err_message}}{{end}}{{else}}{{__line__}}{{end}}\""
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "wrapLogMessage": true,
+                "sortOrder": "Descending",
+                "enableLogDetails": true
+            },
+            "id": 31
+        }
+    ]
+}

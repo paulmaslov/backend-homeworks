@@ -36,15 +36,74 @@ export default tseslint.config(
             "simple-import-sort": simpleImportSort,
         },
         rules: {
-            "simple-import-sort/imports": "error",
-            "simple-import-sort/exports": "error",
-            "no-relative-import-paths/no-relative-import-paths": [
-                "warn",
-                { allowSameFolder: true, rootDir: "src", prefix: "@" },
+            "simple-import-sort/imports": [
+                "error",
+                {
+                    groups: [
+                        ["^\\u0000"],
+                        ["^node:"],
+                        ["^@?\\w"],
+                        ["^@libs(/.*|$)"],
+                        ["^@(user-service|notification-service)(/.*|$)"],
+                        ["^"],
+                        ["^\\."],
+                    ],
+                },
             ],
+            "simple-import-sort/exports": "error",
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/no-floating-promises": "error",
             "@typescript-eslint/no-unsafe-argument": "warn",
+        },
+    },
+    {
+        files: ["apps/user-service/**/*.ts"],
+        rules: {
+            "no-relative-import-paths/no-relative-import-paths": [
+                "warn",
+                {
+                    allowSameFolder: true,
+                    rootDir: "apps/user-service/src",
+                    prefix: "@user-service",
+                },
+            ],
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["@notification-service/*"],
+                            message:
+                                "Приложения не импортируют друг друга, общий код - в libs",
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ["apps/notification-service/**/*.ts"],
+        rules: {
+            "no-relative-import-paths/no-relative-import-paths": [
+                "warn",
+                {
+                    allowSameFolder: true,
+                    rootDir: "apps/notification-service/src",
+                    prefix: "@notification-service",
+                },
+            ],
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["@user-service/*"],
+                            message:
+                                "Приложения не импортируют друг друга, общий код - в libs",
+                        },
+                    ],
+                },
+            ],
         },
     },
     {
@@ -66,10 +125,11 @@ export default tseslint.config(
         },
     },
     {
-        files: ["src/**/*.ts", "test/**/*.ts"],
+        files: ["apps/**/*.ts", "libs/**/*.ts"],
         plugins: { "import-x": importX },
         settings: {
             "import-x/resolver-next": [createTypeScriptImportResolver()],
+            "import-x/extensions": [".ts"],
         },
         rules: {
             "import-x/no-cycle": ["error", { maxDepth: Infinity }],

@@ -34,4 +34,8 @@ lerna-debug.log*
 
 # Coverage / tests
 /coverage
-/coverage-e2e
+coverage-e2e/
+
+# Postman
+.postman/
+postman/

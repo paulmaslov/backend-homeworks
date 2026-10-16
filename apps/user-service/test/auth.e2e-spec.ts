@@ -1,0 +1,210 @@
+import { INestApplication } from "@nestjs/common";
+import { QueryTypes } from "sequelize";
+import { Sequelize } from "sequelize-typescript";
+
+import { AccessTokenResponseDto } from "@user-service/auth/dto/access-token-response.dto";
+
+import { api, API_PREFIX } from "./helpers/api";
+import { buildUser } from "./helpers/build-user";
+import { cleanDatabase } from "./helpers/clean-database";
+import { createTestApp } from "./helpers/create-test-app";
+import { getRefreshCookie } from "./helpers/get-cookies";
+import { registerUser } from "./helpers/register-user";
+
+describe("Auth (e2e)", () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+        app = await createTestApp();
+        await app.listen(0);
+    });
+
+    beforeEach(async () => {
+        await cleanDatabase(app);
+    });
+
+    afterAll(async () => {
+        await app?.close();
+    });
+
+    describe("POST /auth/register", () => {
+        it("Register new user and returns access token", async () => {
+            const response = await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser())
+                .expect(201);
+
+            const body = response.body as AccessTokenResponseDto;
+
+            expect(typeof body.accessToken).toBe("string");
+        });
+
+        it("Checks if refresh cookie exists", async () => {
+            const response = await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser())
+                .expect(201);
+
+            const refreshCookie = getRefreshCookie(response);
+
+            expect(refreshCookie).toBeDefined();
+            expect(refreshCookie).toContain("HttpOnly");
+        });
+
+        it("Register already existing user login", async () => {
+            await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser())
+                .expect(201);
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser({ email: "another@email.com" }))
+                .expect(409);
+        });
+
+        it("Returns 409 when email is already taken", async () => {
+            await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser())
+                .expect(201);
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser({ login: "another_login" }))
+                .expect(409);
+        });
+
+        it("Returns 400 when password is too short", async () => {
+            await api(app)
+                .post(`${API_PREFIX}/auth/register`)
+                .send(buildUser({ password: "short" }))
+                .expect(400);
+        });
+    });
+
+    describe("POST /auth/login", () => {
+        const login = "profile_owner";
+        const password = "strongPassw0rd";
+
+        it("Login by correct input", async () => {
+            await registerUser(app, { login, password });
+
+            const response = await api(app)
+                .post(`${API_PREFIX}/auth/login`)
+                .send({ login, password })
+                .expect(200);
+
+            expect(response.body).toHaveProperty("accessToken");
+        });
+
+        it("Returns 401 for incorrect password", async () => {
+            await registerUser(app, { login, password });
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/login`)
+                .send({ login, password: "wrongPassw0rd" })
+                .expect(401);
+        });
+
+        it("Returns 401 for incorrect login", async () => {
+            await registerUser(app, { login, password });
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/login`)
+                .send({ login: "Rom4ik", password })
+                .expect(401);
+        });
+    });
+
+    describe("POST /auth/logout", () => {
+        it("Checks if refresh token is revoked after logout", async () => {
+            const { refreshCookie } = await registerUser(app);
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/logout`)
+                .set("Cookie", refreshCookie)
+                .expect(204);
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(401);
+        });
+    });
+
+    describe("POST /auth/refresh", () => {
+        it("Refreshes token pair by cookie", async () => {
+            const { refreshCookie } = await registerUser(app);
+
+            const response = await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(200);
+
+            expect(response.body).toHaveProperty("accessToken");
+
+            const newCookie = getRefreshCookie(response);
+            expect(newCookie).toBeDefined();
+        });
+
+        it("Checks if old refresh cookie not working after refresh", async () => {
+            const { refreshCookie } = await registerUser(app);
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(200);
+
+            // тот же старый токен повторно
+            await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(401);
+        });
+
+        it("Accepts refresh token only once when requests run in parallel", async () => {
+            const { refreshCookie } = await registerUser(app);
+
+            // запросы одновременно находят токен, и без проверки
+            // удаления каждый из них выдавал бы свою пару токенов
+            const responses = await Promise.all(
+                Array.from({ length: 5 }, () =>
+                    api(app)
+                        .post(`${API_PREFIX}/auth/refresh`)
+                        .set("Cookie", refreshCookie),
+                ),
+            );
+
+            const statuses = responses.map((response) => response.status);
+            expect(statuses.filter((status) => status === 200)).toHaveLength(1);
+            expect(statuses.filter((status) => status === 401)).toHaveLength(4);
+        });
+
+        it("Deletes an expired refresh token", async () => {
+            const { refreshCookie } = await registerUser(app);
+            const sequelize = app.get(Sequelize);
+
+            await sequelize.query(
+                `UPDATE refresh_tokens SET "expiresAt" = now() - interval '1 minute'`,
+            );
+
+            await api(app)
+                .post(`${API_PREFIX}/auth/refresh`)
+                .set("Cookie", refreshCookie)
+                .expect(401);
+
+            // юнит-тест видит только вызов удаления, а откат транзакции
+            // заметен лишь по строке в настоящей базе
+            const [{ count }] = await sequelize.query<{ count: string }>(
+                `SELECT count(*)::text AS count FROM refresh_tokens`,
+                { type: QueryTypes.SELECT },
+            );
+            expect(count).toBe("0");
+        });
+
+        it("Returns 401 without refresh cookie", async () => {
+            await api(app).post(`${API_PREFIX}/auth/refresh`).expect(401);
+        });
+    });
+});

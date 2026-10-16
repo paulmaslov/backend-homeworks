@@ -11,6 +11,11 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}' ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   minio:
     image: minio/minio
@@ -55,6 +60,219 @@ services:
       timeout: 3s
       retries: 5
 
+  mongo:
+    image: mongo:8.0
+    container_name: backend-homeworks-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: [ 'CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: backend-homeworks-kafka
+    restart: unless-stopped
+    ports:
+      - '9092:9092'
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_LISTENERS: EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: q1Sh-9_ISia_zwGINzRvyQ
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: [ 'CMD', '/opt/kafka/bin/kafka-broker-api-versions.sh', '--bootstrap-server', 'localhost:9092' ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+    container_name: backend-homeworks-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: >
+      /bin/bash -c "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic wallet.transfer.completed --partitions 3 --replication-factor 1 &&
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic wallet.transfer.completed.dlq --partitions 1 --replication-factor 1
+      "
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    container_name: backend-homeworks-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '8080:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  # сервисы приложения запускаются только с профилем app:
+  # docker compose --profile app up -d --build
+  user-service-migrations:
+    profiles: [ app ]
+    build: &user-service-build
+      context: .
+      target: user-service
+    image: backend-homeworks/user-service
+    command: [ 'node', 'dist/apps/user-service/src/databases/migrate.js', 'up' ]
+    env_file:
+      - .env
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  user-service:
+    profiles: [ app ]
+    build: *user-service-build
+    image: backend-homeworks/user-service
+    restart: unless-stopped
+    init: true
+    # остановка занимает до 20 с, а по умолчанию docker ждет 10 с и убивает процесс
+    stop_grace_period: 30s
+    env_file:
+      - .env
+      - .env.docker
+    ports:
+      - '${PORT}:${PORT}'
+    depends_on:
+      user-service-migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ 'CMD', 'node', '-e', "fetch('http://localhost:${PORT}/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  notification-service-migrations:
+    profiles: [ app ]
+    build: &notification-service-build
+      context: .
+      target: notification-service
+    image: backend-homeworks/notification-service
+    command: [ 'node', 'dist/apps/notification-service/src/databases/migrate.js', 'up' ]
+    env_file:
+      - .env
+      - .env.docker
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  notification-service:
+    profiles: [ app ]
+    build: *notification-service-build
+    image: backend-homeworks/notification-service
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    env_file:
+      - .env
+      - .env.docker
+    ports:
+      - '${NOTIFICATION_PORT}:${NOTIFICATION_PORT}'
+    depends_on:
+      notification-service-migrations:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ 'CMD', 'node', '-e', "fetch('http://localhost:${NOTIFICATION_PORT}/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # метрики и логи сервисов в grafana: http://localhost:3030
+  # docker compose --profile app --profile observability up -d --build
+  prometheus:
+    profiles: [ observability ]
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - '127.0.0.1:9090:9090'
+
+  loki:
+    profiles: [ observability ]
+    image: grafana/loki:3.6.18
+    restart: unless-stopped
+    volumes:
+      - loki_data:/loki
+
+  alloy:
+    profiles: [ observability ]
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    command: [ 'run', '--storage.path=/var/lib/alloy/data', '/etc/alloy/config.alloy' ]
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # логи контейнеров alloy читает через docker api
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    profiles: [ observability ]
+    image: grafana/grafana:13.2.4
+    restart: unless-stopped
+    environment:
+      # специально выключил пароль, чтобы было проще.
+      # По хорошему нужно выключить анонимный доступ и ставить пароль
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - '127.0.0.1:3030:3000'
+    depends_on:
+      - prometheus
+      - loki
+
+
 configs:
   avatars_policy:
     content: |
@@ -74,5 +292,8 @@ configs:
 volumes:
   postgres_data:
   minio_storage:
-
-
+  mongo_data:
+  kafka_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
