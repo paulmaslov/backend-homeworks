@@ -161,6 +161,24 @@ describe("Auth (e2e)", () => {
                 .expect(401);
         });
 
+        it("Accepts refresh token only once when requests run in parallel", async () => {
+            const { refreshCookie } = await registerUser(app);
+
+            // запросы одновременно находят токен, и без проверки
+            // удаления каждый из них выдавал бы свою пару токенов
+            const responses = await Promise.all(
+                Array.from({ length: 5 }, () =>
+                    api(app)
+                        .post(`${API_PREFIX}/auth/refresh`)
+                        .set("Cookie", refreshCookie),
+                ),
+            );
+
+            const statuses = responses.map((response) => response.status);
+            expect(statuses.filter((status) => status === 200)).toHaveLength(1);
+            expect(statuses.filter((status) => status === 401)).toHaveLength(4);
+        });
+
         it("Returns 401 without refresh cookie", async () => {
             await api(app).post(`${API_PREFIX}/auth/refresh`).expect(401);
         });

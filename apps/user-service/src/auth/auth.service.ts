@@ -113,10 +113,22 @@ export class AuthService {
                 storedRefreshToken.userId,
             );
 
-            await this.refreshTokenRepository.deleteByTokenHash(
+            // select выше не блокирует строку, и параллельный refresh с тем же
+            // токеном тоже ее находит. удалить строку может только один из них,
+            // второй дождется его коммита и удалит 0 строк - без этой проверки
+            // он выдал бы еще одну пару токенов
+            const deleted = await this.refreshTokenRepository.deleteByTokenHash(
                 tokenHash,
                 transaction,
             );
+
+            if (deleted === 0) {
+                this.logger.warn(
+                    { userId: storedRefreshToken.userId },
+                    "Refresh failed: token already used by a concurrent request",
+                );
+                throw new UnauthorizedException("Invalid refresh token");
+            }
 
             transaction.afterCommit(() => {
                 this.logger.info({ userId: user.id }, "Tokens rotated");
